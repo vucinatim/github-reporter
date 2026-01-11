@@ -62,6 +62,7 @@ type CommitApi = {
   sha: string;
   commit: { message: string; author?: { name?: string; date?: string } };
   html_url: string;
+  author?: { login?: string | null };
 };
 
 async function listRepos(
@@ -122,7 +123,7 @@ async function listCommits(
   return data.map((commit) => ({
     sha: commit.sha,
     message: commit.commit.message,
-    author: commit.commit.author?.name ?? "unknown",
+    author: commit.author?.login ?? commit.commit.author?.name ?? "unknown",
     date: commit.commit.author?.date ?? window.end,
     url: commit.html_url
   }));

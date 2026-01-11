@@ -71,7 +71,9 @@ const jobSchema = z
         sourceTemplateId: z.string().optional(),
         sourceJobId: z.string().optional(),
         sourceOutputPrefix: z.string().optional(),
-        promptTemplate: z.string().optional()
+        promptTemplate: z.string().optional(),
+        maxBytesPerItem: z.coerce.number().int().positive().optional(),
+        maxTotalBytes: z.coerce.number().int().positive().optional()
       })
       .optional()
   })

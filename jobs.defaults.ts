@@ -35,6 +35,8 @@ export const defaultJobs: JobsFile = {
       aggregation: {
         sourceJobId: "daily",
         sourceTemplateId: "changelog",
+        maxBytesPerItem: 12000,
+        maxTotalBytes: 60000,
       },
       schedule: {
         type: "weekly",
@@ -51,6 +53,8 @@ export const defaultJobs: JobsFile = {
       windowHours: 1,
       templates: [],
       includeInactiveRepos: true,
+      maxCommitsPerRepo: 20,
+      maxTotalCommits: 200,
       backfillWindows: 0,
       onEmpty: "manifest-only",
       contextProviders: [],

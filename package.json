@@ -6,6 +6,8 @@
   "scripts": {
     "bucket:clear": "tsx scripts/clear-bucket.ts",
     "dev": "tsx src/index.ts",
+    "health": "tsx src/index.ts health",
+    "smoke": "tsx scripts/smoke-test.ts",
     "build": "tsc -p tsconfig.json",
     "start": "node dist/src/index.js"
   },

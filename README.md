@@ -76,6 +76,11 @@ INCLUDE_PRIVATE=false
 
 Logs are JSON lines (structured) so Railway and other log viewers can parse them cleanly.
 
+## Health & smoke tests
+
+- `npm run health` validates config, storage, and GitHub access.
+- `npm run smoke` runs health checks and logs schedule decisions without writing artifacts.
+
 ## What it does (MVP)
 
 - Pulls recent activity from selected repos

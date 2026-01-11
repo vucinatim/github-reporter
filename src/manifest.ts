@@ -42,6 +42,7 @@ export type IndexItem = {
   days: number;
   hours?: number;
   manifestKey: string;
+  summaryKey?: string;
 };
 
 export type JobRegistryItem = {

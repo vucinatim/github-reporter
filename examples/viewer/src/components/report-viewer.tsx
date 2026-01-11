@@ -10,6 +10,7 @@ type IndexItem = {
   hours?: number;
   manifestKey: string;
   jobId?: string;
+  summaryKey?: string;
 };
 
 type Manifest = {
@@ -27,9 +28,27 @@ type Manifest = {
   ownerType: "user" | "org";
   window: { start: string; end: string; days: number; hours?: number };
   timezone?: string;
-  templates: { id: string; format: string; key: string; uri: string; size: number }[];
+  templates: {
+    id: string;
+    format: string;
+    key: string;
+    uri: string;
+    size: number;
+  }[];
   repos: { name: string; commits: number; prs: number; issues: number }[];
   stats: { repos: number; commits: number; prs: number; issues: number };
+};
+
+type Summary = {
+  owner: string;
+  ownerType: "user" | "org";
+  jobId: string;
+  window: { start: string; end: string; days: number; hours?: number };
+  status: "success" | "failed";
+  empty: boolean;
+  templates: string[];
+  bytes: number;
+  manifestKey: string;
 };
 
 type JobRegistryItem = {
@@ -52,9 +71,8 @@ type JobRegistry = {
 };
 
 const defaultOwner = process.env.NEXT_PUBLIC_DEFAULT_OWNER ?? "";
-const defaultOwnerType = (process.env.NEXT_PUBLIC_DEFAULT_OWNER_TYPE ?? "user") as
-  | "user"
-  | "org";
+const defaultOwnerType = (process.env.NEXT_PUBLIC_DEFAULT_OWNER_TYPE ??
+  "user") as "user" | "org";
 const prefix = process.env.NEXT_PUBLIC_REPORT_PREFIX ?? "reports";
 
 export default function ReportViewer() {
@@ -65,7 +83,7 @@ export default function ReportViewer() {
   const [latest, setLatest] = useState<Manifest | null>(null);
   const [selected, setSelected] = useState<Manifest | null>(null);
   const [content, setContent] = useState<string>("");
-  const [items, setItems] = useState<IndexItem[]>([]);
+  const [items, setItems] = useState<(IndexItem & { summary?: Summary })[]>([]);
   const [months, setMonths] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [hasMore, setHasMore] = useState(true);
@@ -84,44 +102,6 @@ export default function ReportViewer() {
     const jobPrefix = selectedJob?.outputPrefix ?? prefix;
     return `${jobPrefix}/_index/${ownerType}/${owner}/${jobId}`;
   }, [ownerType, owner, jobId, selectedJob]);
-
-  useEffect(() => {
-    if (!owner) return;
-    setItems([]);
-    setMonths([]);
-    setLatest(null);
-    setSelected(null);
-    setContent("");
-    setHasMore(true);
-    void loadJobs();
-  }, [jobsIndex]);
-
-  useEffect(() => {
-    if (!baseIndex) return;
-    setItems([]);
-    setMonths([]);
-    setLatest(null);
-    setSelected(null);
-    setContent("");
-    setHasMore(true);
-    void loadLatest(baseIndex);
-    void loadMore();
-  }, [baseIndex]);
-
-  useEffect(() => {
-    const node = loadMoreRef.current;
-    if (!node) return;
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries.some((entry) => entry.isIntersecting)) {
-          void loadMore();
-        }
-      },
-      { rootMargin: "120px" }
-    );
-    observer.observe(node);
-    return () => observer.disconnect();
-  }, [owner, months.length, loading, hasMore]);
 
   async function loadJobs() {
     try {
@@ -168,7 +148,16 @@ export default function ReportViewer() {
       if (!res.ok) return false;
       const data = await res.json();
       const list = (data.items as IndexItem[]) ?? [];
-      setItems((prev) => [...prev, ...list]);
+      const enriched = await Promise.all(
+        list.map(async (item) => {
+          const summaryKey =
+            item.summaryKey ??
+            item.manifestKey.replace(/manifest\\.json$/, "summary.json");
+          const summary = await loadSummary(summaryKey);
+          return { ...item, summaryKey, summary: summary ?? undefined };
+        })
+      );
+      setItems((prev) => [...prev, ...enriched]);
       return true;
     } catch {
       return false;
@@ -205,6 +194,53 @@ export default function ReportViewer() {
     const text = await res.text();
     setContent(text);
   }
+
+  async function loadSummary(key: string) {
+    const res = await fetch(`/api/reports/${key}`);
+    if (!res.ok) return null;
+    return (await res.json()) as Summary;
+  }
+
+  useEffect(() => {
+    if (!owner) return;
+    setItems([]);
+    setMonths([]);
+    setLatest(null);
+    setSelected(null);
+    setContent("");
+    setHasMore(true);
+    void loadJobs();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [jobsIndex]);
+
+  useEffect(() => {
+    if (!baseIndex) return;
+    setItems([]);
+    setMonths([]);
+    setLatest(null);
+    setSelected(null);
+    setContent("");
+    setHasMore(true);
+    void loadLatest(baseIndex);
+    void loadMore();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [baseIndex]);
+
+  useEffect(() => {
+    const node = loadMoreRef.current;
+    if (!node) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) {
+          void loadMore();
+        }
+      },
+      { rootMargin: "120px" }
+    );
+    observer.observe(node);
+    return () => observer.disconnect();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [owner, months.length, loading, hasMore]);
 
   const reportList = useMemo(
     () => [...items].sort((a, b) => b.start.localeCompare(a.start)),
@@ -285,7 +321,8 @@ export default function ReportViewer() {
                 {latest.window.start.slice(0, 10)}
               </div>
               <div className="text-xs text-zinc-500">
-                {formatWindowLabel(latest.window)} • {latest.stats.commits} commits
+                {formatWindowLabel(latest.window)} • {latest.stats.commits}{" "}
+                commits
               </div>
             </button>
           ) : (
@@ -322,7 +359,8 @@ export default function ReportViewer() {
               >
                 <div className="text-zinc-200">{item.start.slice(0, 10)}</div>
                 <div className="text-zinc-500">
-                  {formatIndexLabel(item)} • {item.manifestKey.split("/").pop()}
+                  {formatIndexLabel(item)} •{" "}
+                  {item.summary?.templates?.join(", ") || "summary"}
                 </div>
               </button>
             ))}
@@ -339,9 +377,9 @@ export default function ReportViewer() {
                 {selected.owner} · {selected.window.start.slice(0, 10)}
               </h2>
               <p className="text-sm text-zinc-400">
-                {formatWindowLabel(selected.window)} · {selected.stats.commits} commits ·
-                {" "}
-                {selected.stats.prs} PRs · {selected.stats.issues} issues
+                {formatWindowLabel(selected.window)} · {selected.stats.commits}{" "}
+                commits · {selected.stats.prs} PRs · {selected.stats.issues}{" "}
+                issues
               </p>
             </div>
             <div className="flex flex-wrap gap-2">

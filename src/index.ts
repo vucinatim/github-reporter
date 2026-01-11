@@ -19,6 +19,7 @@ import { formatTimestamp, logger, setLoggerConfig } from "./logger.js";
 import { withRetry } from "./retry.js";
 import { enrichReposWithContext } from "./context/index.js";
 import { getTemplateById } from "./templates.js";
+import { runHealthCheck } from "./health.js";
 import {
   buildFailedManifest,
   buildManifest,
@@ -41,6 +42,10 @@ async function main() {
     color: config.logging.color,
     timeZone: config.logging.timeZone
   });
+  if (process.argv.includes("health")) {
+    await runHealthCheck(config);
+    return;
+  }
   const baseLogger = logger.withContext({
     owner: config.github.owner,
     ownerType: config.github.ownerType
@@ -458,7 +463,14 @@ async function runForWindow(
       owner,
       ownerType,
       periodKey,
-      { start: window.start, end: window.end, days: windowDays, hours: windowHours, manifestKey },
+      {
+        start: window.start,
+        end: window.end,
+        days: windowDays,
+        hours: windowHours,
+        manifestKey,
+        summaryKey
+      },
       job
     );
     runLogger.info("index.update", { key: monthKey });
@@ -494,7 +506,14 @@ async function runForWindow(
       owner,
       ownerType,
       periodKey,
-      { start: window.start, end: window.end, days: windowDays, hours: windowHours, manifestKey },
+      {
+        start: window.start,
+        end: window.end,
+        days: windowDays,
+        hours: windowHours,
+        manifestKey,
+        summaryKey
+      },
       job
     );
     const latestKey = `${indexBaseKey}/latest.json`;
@@ -700,7 +719,14 @@ async function runStatsWindow(
       owner,
       ownerType,
       periodKey,
-      { start: window.start, end: window.end, days: windowDays, hours: windowHours, manifestKey },
+      {
+        start: window.start,
+        end: window.end,
+        days: windowDays,
+        hours: windowHours,
+        manifestKey,
+        summaryKey
+      },
       job
     );
     runLogger.info("index.update", { key: monthKey });
@@ -736,7 +762,14 @@ async function runStatsWindow(
       owner,
       ownerType,
       periodKey,
-      { start: window.start, end: window.end, days: windowDays, hours: windowHours, manifestKey },
+      {
+        start: window.start,
+        end: window.end,
+        days: windowDays,
+        hours: windowHours,
+        manifestKey,
+        summaryKey
+      },
       job
     );
     const latestKey = `${indexBaseKey}/latest.json`;
@@ -810,7 +843,11 @@ async function runAggregateWindow(
       storage,
       items,
       sourceTemplateId,
-      config.logging.timeZone
+      config.logging.timeZone,
+      {
+        maxBytesPerItem: job.aggregation?.maxBytesPerItem,
+        maxTotalBytes: job.aggregation?.maxTotalBytes
+      }
     );
     const isEmpty = aggregateItems.length === 0;
 
@@ -943,7 +980,14 @@ async function runAggregateWindow(
       owner,
       ownerType,
       periodKey,
-      { start: window.start, end: window.end, days: windowDays, hours: windowHours, manifestKey },
+      {
+        start: window.start,
+        end: window.end,
+        days: windowDays,
+        hours: windowHours,
+        manifestKey,
+        summaryKey
+      },
       job
     );
     runLogger.info("index.update", { key: monthKey });
@@ -979,7 +1023,14 @@ async function runAggregateWindow(
       owner,
       ownerType,
       periodKey,
-      { start: window.start, end: window.end, days: windowDays, hours: windowHours, manifestKey },
+      {
+        start: window.start,
+        end: window.end,
+        days: windowDays,
+        hours: windowHours,
+        manifestKey,
+        summaryKey
+      },
       job
     );
     const latestKey = `${indexBaseKey}/latest.json`;
@@ -1119,10 +1170,16 @@ async function loadAggregateItems(
   storage: ReturnType<typeof createStorageClient>,
   items: IndexItem[],
   templateId: string,
-  timeZone?: string
+  timeZone: string | undefined,
+  caps?: { maxBytesPerItem?: number; maxTotalBytes?: number }
 ) {
   const results: AggregateInput["items"] = [];
+  const totalCap = caps?.maxTotalBytes ?? Infinity;
+  const perItemCap = caps?.maxBytesPerItem ?? Infinity;
+  let totalBytes = 0;
+
   for (const item of items) {
+    if (totalBytes >= totalCap) break;
     const manifestText = await storage.get(item.manifestKey);
     if (!manifestText) continue;
     const manifest = JSON.parse(manifestText) as ReportManifest;
@@ -1131,11 +1188,30 @@ async function loadAggregateItems(
     if (!template) continue;
     const content = await storage.get(template.key);
     if (!content) continue;
+
+    const truncated = truncateBytes(content, perItemCap);
+    const bytes = Buffer.byteLength(truncated, "utf8");
+    if (totalBytes + bytes > totalCap) {
+      const remaining = Math.max(0, totalCap - totalBytes);
+      if (remaining <= 0) break;
+      const final = truncateBytes(truncated, remaining);
+      const finalBytes = Buffer.byteLength(final, "utf8");
+      if (finalBytes === 0) break;
+      results.push({
+        date: formatDateOnly(new Date(item.start), timeZone),
+        manifestKey: item.manifestKey,
+        content: final
+      });
+      totalBytes += finalBytes;
+      break;
+    }
+
     results.push({
       date: formatDateOnly(new Date(item.start), timeZone),
       manifestKey: item.manifestKey,
-      content
+      content: truncated
     });
+    totalBytes += bytes;
   }
   return results;
 }
@@ -1416,6 +1492,12 @@ function truncateTextBytes(value: string | undefined, maxBytes: number) {
   const buffer = Buffer.from(value, "utf8");
   if (buffer.byteLength <= maxBytes) return value;
   return `${buffer.subarray(0, maxBytes).toString("utf8")}...[truncated]`;
+}
+
+function truncateBytes(value: string, maxBytes: number) {
+  const buffer = Buffer.from(value, "utf8");
+  if (buffer.byteLength <= maxBytes) return value;
+  return buffer.subarray(0, maxBytes).toString("utf8");
 }
 
 function byteLength(value: unknown) {

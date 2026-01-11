@@ -48,7 +48,7 @@ export const defaultConfig: ConfigFile = {
     includeDiffSummary: true,
     includeDiffSnippets: true,
     includePullRequests: true,
-    includePullRequestDetails: true,
+    includePullRequestDetails: false,
     includeIssues: true,
     maxReadmeBytes: 12000,
     maxLlmTxtBytes: 8000,
