@@ -18,6 +18,7 @@ export type ReportManifest = {
     days: number;
   };
   timezone?: string;
+  empty?: boolean;
   templates: ManifestTemplate[];
   repos: { name: string; commits: number; prs: number; issues: number }[];
   stats: { repos: number; commits: number; prs: number; issues: number };
@@ -78,7 +79,8 @@ export function buildManifest(
   window: { start: string; end: string; days: number },
   timezone: string | undefined,
   repos: RepoActivity[],
-  artifacts: { id: string; format: string; stored: StoredArtifact }[]
+  artifacts: { id: string; format: string; stored: StoredArtifact }[],
+  empty: boolean
 ): ReportManifest {
   const reposSummary = repos.map((repo) => ({
     name: repo.repo.name,
@@ -110,6 +112,7 @@ export function buildManifest(
     ownerType,
     window,
     timezone,
+    empty,
     templates,
     repos: reposSummary,
     stats

@@ -27,6 +27,7 @@ export const defaultConfig: ConfigFile = {
     backfillWindows: 0,
     backfillStart: "",
     backfillEnd: "",
+    onEmpty: "placeholder",
   },
   llm: {
     model: "gemini-3-flash-preview",

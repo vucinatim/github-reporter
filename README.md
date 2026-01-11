@@ -29,6 +29,10 @@ Set `BACKFILL_WINDOWS` (e.g., `7`) or `BACKFILL_START`/`BACKFILL_END` (`YYYY-MM-
 
 Set `REPORT_WINDOW_DAYS` to control the report window length (e.g., `7` for weekly, `30` for monthly-ish).
 
+## Empty windows
+
+Set `REPORT_ON_EMPTY` to control what happens when there is no activity: `placeholder` (default), `manifest-only`, or `skip`.
+
 ## Storage layout
 
 Artifacts are written under `{output.prefix}/{ownerType}/{owner}/{start}__{end}/` with a `manifest.json` per window, plus indices under `{output.prefix}/_index/{ownerType}/{owner}/`.

@@ -156,6 +156,11 @@ async function runForWindow(
       : inactiveRepoCount
   };
 
+  const activityStats = summarizeActivity(reposForReport);
+  const isEmpty = activityStats.commits === 0 &&
+    activityStats.prs === 0 &&
+    activityStats.issues === 0;
+
   const templates =
     config.report.templates.length > 0 ? config.report.templates : ["default"];
 
@@ -174,110 +179,123 @@ async function runForWindow(
     }
   }
 
-  for (const templateId of templates) {
-    const template =
-      templateId === "default" ? null : getTemplateById(templateId);
-    if (templateId !== "default" && !template) {
-      runLogger.warn("report.template.missing", { templateId });
-      continue;
-    }
-
-    const outputFormat = template?.outputFormat ?? config.output.format;
-    const templatePrompt = template
-      ? [config.llm.promptTemplate ?? basePrompt, template.instructions].join(
-          "\n\n"
-        )
-      : config.llm.promptTemplate ?? basePrompt;
-    const extension = outputFormat === "json" ? "json" : "md";
-    const templateKey = `${reportBaseKey}/${template?.id ?? "default"}.${extension}`;
-    const contentType =
-      outputFormat === "json"
-        ? "application/json"
-        : "text/markdown; charset=utf-8";
-
-    const generateStart = Date.now();
-    runLogger.info("report.generate.start", {
-      model: config.llm.model,
-      format: outputFormat,
-      template: template?.id ?? "default"
-    });
-    const report = await withRetry(
-      () =>
-        generateReport(input, {
-          apiKey: config.llm.apiKey,
-          model: config.llm.model,
-          promptTemplate: templatePrompt,
-          outputFormat,
-          outputSchemaJson: config.output.schemaJson,
-          validateSchema: config.output.validateSchema,
-          maxTokensHint: config.report.maxTokensHint
-        }),
-      {
-        retries: config.network.retryCount,
-        backoffMs: config.network.retryBackoffMs
-      }
-    );
-    runLogger.info("report.generate.done", {
-      format: report.format,
-      length: report.text.length,
-      template: template?.id ?? "default",
-      ...withDuration(generateStart, config)
-    });
-
-    const writeStart = Date.now();
-    runLogger.info("artifact.write.start", {
-      storageType: config.storage.type,
-      key: templateKey,
-      template: template?.id ?? "default"
-    });
-    const artifact = await storage.put(templateKey, report.text, contentType);
-    runLogger.info("artifact.write.done", {
-      key: artifact.key,
-      uri: artifact.uri,
-      size: artifact.size,
-      template: template?.id ?? "default",
-      ...withDuration(writeStart, config)
-    });
-    artifacts.push({
-      id: template?.id ?? "default",
-      format: report.format,
-      stored: artifact
-    });
-
-    const payload: WebhookPayload = {
-      owner: config.github.owner,
-      ownerType: config.github.ownerType,
-      window,
-      artifact,
-      format: report.format,
-      createdAt: new Date().toISOString()
-    };
-
-    const webhookStart = Date.now();
-    runLogger.info("webhook.send.start", {
-      enabled: Boolean(config.webhook.url),
-      template: template?.id ?? "default"
-    });
-    await withRetry(
-      () => sendWebhook(config.webhook, payload),
-      {
-        retries: config.network.retryCount,
-        backoffMs: config.network.retryBackoffMs
-      }
-    );
-    runLogger.info("webhook.send.done", {
-      enabled: Boolean(config.webhook.url),
-      template: template?.id ?? "default",
-      ...withDuration(webhookStart, config)
-    });
-
-    runLogger.info("run.complete", {
-      artifact: artifact.uri,
-      template: template?.id ?? "default"
-    });
+  if (isEmpty && config.report.onEmpty === "skip") {
+    runLogger.info("run.skipped", { reason: "empty" });
+    return;
   }
 
-  if (artifacts.length === 0) {
+  if (!(isEmpty && config.report.onEmpty === "manifest-only")) {
+    for (const templateId of templates) {
+      const template =
+        templateId === "default" ? null : getTemplateById(templateId);
+      if (templateId !== "default" && !template) {
+        runLogger.warn("report.template.missing", { templateId });
+        continue;
+      }
+
+      const outputFormat = template?.outputFormat ?? config.output.format;
+      const templatePrompt = template
+        ? [config.llm.promptTemplate ?? basePrompt, template.instructions].join(
+            "\n\n"
+          )
+        : config.llm.promptTemplate ?? basePrompt;
+      const extension = outputFormat === "json" ? "json" : "md";
+      const templateKey = `${reportBaseKey}/${template?.id ?? "default"}.${extension}`;
+      const contentType =
+        outputFormat === "json"
+          ? "application/json"
+          : "text/markdown; charset=utf-8";
+
+      let reportText = "";
+      if (isEmpty && config.report.onEmpty !== "manifest-only") {
+        reportText = buildEmptyReport(outputFormat, template?.id ?? "default");
+      } else if (!isEmpty) {
+        const generateStart = Date.now();
+        runLogger.info("report.generate.start", {
+          model: config.llm.model,
+          format: outputFormat,
+          template: template?.id ?? "default"
+        });
+        const report = await withRetry(
+          () =>
+            generateReport(input, {
+              apiKey: config.llm.apiKey,
+              model: config.llm.model,
+              promptTemplate: templatePrompt,
+              outputFormat,
+              outputSchemaJson: config.output.schemaJson,
+              validateSchema: config.output.validateSchema,
+              maxTokensHint: config.report.maxTokensHint
+            }),
+          {
+            retries: config.network.retryCount,
+            backoffMs: config.network.retryBackoffMs
+          }
+        );
+        reportText = report.text;
+        runLogger.info("report.generate.done", {
+          format: report.format,
+          length: report.text.length,
+          template: template?.id ?? "default",
+          ...withDuration(generateStart, config)
+        });
+      }
+
+      const writeStart = Date.now();
+      runLogger.info("artifact.write.start", {
+        storageType: config.storage.type,
+        key: templateKey,
+        template: template?.id ?? "default"
+      });
+      const artifact = await storage.put(templateKey, reportText, contentType);
+      runLogger.info("artifact.write.done", {
+        key: artifact.key,
+        uri: artifact.uri,
+        size: artifact.size,
+        template: template?.id ?? "default",
+        ...withDuration(writeStart, config)
+      });
+      artifacts.push({
+        id: template?.id ?? "default",
+        format: outputFormat,
+        stored: artifact
+      });
+
+      const payload: WebhookPayload = {
+        owner: config.github.owner,
+        ownerType: config.github.ownerType,
+        window,
+        artifact,
+        format: outputFormat,
+        createdAt: new Date().toISOString()
+      };
+
+      const webhookStart = Date.now();
+      runLogger.info("webhook.send.start", {
+        enabled: Boolean(config.webhook.url),
+        template: template?.id ?? "default"
+      });
+      await withRetry(
+        () => sendWebhook(config.webhook, payload),
+        {
+          retries: config.network.retryCount,
+          backoffMs: config.network.retryBackoffMs
+        }
+      );
+      runLogger.info("webhook.send.done", {
+        enabled: Boolean(config.webhook.url),
+        template: template?.id ?? "default",
+        ...withDuration(webhookStart, config)
+      });
+
+      runLogger.info("run.complete", {
+        artifact: artifact.uri,
+        template: template?.id ?? "default"
+      });
+    }
+  }
+
+  if (artifacts.length === 0 && !(isEmpty && config.report.onEmpty === "manifest-only")) {
     runLogger.warn("manifest.skipped", { window: windowKey });
     return;
   }
@@ -288,7 +306,8 @@ async function runForWindow(
     { start: window.start, end: window.end, days: windowDays },
     config.logging.timeZone,
     reposForReport,
-    artifacts
+    artifacts,
+    isEmpty
   );
   await writeManifest(storage, manifestKey, manifest);
   runLogger.info("manifest.write", { key: manifestKey });
@@ -482,6 +501,24 @@ function truncateTextBytes(value: string | undefined, maxBytes: number) {
 
 function byteLength(value: unknown) {
   return Buffer.byteLength(JSON.stringify(value), "utf8");
+}
+
+function summarizeActivity(repos: ReportInput["repos"]) {
+  return repos.reduce(
+    (acc, repo) => ({
+      commits: acc.commits + repo.commits.length,
+      prs: acc.prs + (repo.context?.pullRequests?.length ?? 0),
+      issues: acc.issues + (repo.context?.issues?.length ?? 0)
+    }),
+    { commits: 0, prs: 0, issues: 0 }
+  );
+}
+
+function buildEmptyReport(format: "markdown" | "json", templateId: string) {
+  if (format === "json") {
+    return JSON.stringify({ empty: true, template: templateId }, null, 2);
+  }
+  return `# No activity\n\nNo activity recorded for this window.`;
 }
 
 function buildContextFileStats(repos: ReportInput["repos"]) {

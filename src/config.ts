@@ -30,6 +30,7 @@ const envSchema = z.object({
   BACKFILL_WINDOWS: z.coerce.number().int().nonnegative().optional(),
   BACKFILL_START: z.string().optional(),
   BACKFILL_END: z.string().optional(),
+  REPORT_ON_EMPTY: z.enum(["placeholder", "manifest-only", "skip"]).optional(),
 
   GEMINI_API_KEY: z.string().optional(),
   GEMINI_MODEL: z.string().optional(),
@@ -142,6 +143,7 @@ export function loadConfig() {
       backfillEnd: normalizeDateValue(
         env.BACKFILL_END ?? fileConfig.report.backfillEnd
       ),
+      onEmpty: env.REPORT_ON_EMPTY ?? fileConfig.report.onEmpty,
     },
     llm: {
       apiKey,
@@ -208,6 +210,7 @@ export const fileConfigSchema = z.object({
       backfillWindows: z.coerce.number().int().nonnegative().default(0),
       backfillStart: z.string().optional(),
       backfillEnd: z.string().optional(),
+      onEmpty: z.enum(["placeholder", "manifest-only", "skip"]).default("placeholder"),
     })
     .default({}),
   llm: z
