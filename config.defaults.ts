@@ -24,7 +24,7 @@ export const defaultConfig: ConfigFile = {
     maxTokensHint: 1200,
     idempotentKey: "",
     templates: ["dev-diary", "changelog", "twitter"],
-    backfillDays: 0,
+    backfillWindows: 0,
     backfillStart: "",
     backfillEnd: "",
   },

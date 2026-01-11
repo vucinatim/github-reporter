@@ -23,7 +23,7 @@ Configure `report.templates` in `config.defaults.ts` to generate multiple output
 
 ## Backfill
 
-Set `BACKFILL_DAYS` (e.g., `7`) or `BACKFILL_START`/`BACKFILL_END` (`YYYY-MM-DD`) to generate historical daily reports.
+Set `BACKFILL_WINDOWS` (e.g., `7`) or `BACKFILL_START`/`BACKFILL_END` (`YYYY-MM-DD`) to generate historical reports. `BACKFILL_WINDOWS` counts report windows, not days.
 
 ## Window size
 

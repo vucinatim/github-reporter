@@ -27,7 +27,7 @@ const envSchema = z.object({
   REPORT_IDEMPOTENT_KEY: z.string().optional(),
   REPORT_TEMPLATES: z.string().optional(),
   REPORT_WINDOW_DAYS: z.coerce.number().int().positive().optional(),
-  BACKFILL_DAYS: z.coerce.number().int().nonnegative().optional(),
+  BACKFILL_WINDOWS: z.coerce.number().int().nonnegative().optional(),
   BACKFILL_START: z.string().optional(),
   BACKFILL_END: z.string().optional(),
 
@@ -135,7 +135,7 @@ export function loadConfig() {
       idempotentKey:
         env.REPORT_IDEMPOTENT_KEY ?? fileConfig.report.idempotentKey,
       templates: resolveList(env.REPORT_TEMPLATES, fileConfig.report.templates),
-      backfillDays: env.BACKFILL_DAYS ?? fileConfig.report.backfillDays,
+      backfillWindows: env.BACKFILL_WINDOWS ?? fileConfig.report.backfillWindows,
       backfillStart: normalizeDateValue(
         env.BACKFILL_START ?? fileConfig.report.backfillStart
       ),
@@ -205,7 +205,7 @@ export const fileConfigSchema = z.object({
       maxTokensHint: z.coerce.number().int().positive().optional(),
       idempotentKey: z.string().optional(),
       templates: z.array(z.string()).default([]),
-      backfillDays: z.coerce.number().int().nonnegative().default(0),
+      backfillWindows: z.coerce.number().int().nonnegative().default(0),
       backfillStart: z.string().optional(),
       backfillEnd: z.string().optional(),
     })

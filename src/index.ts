@@ -336,7 +336,7 @@ function buildWindows(
   now: Date
 ) {
   if (
-    !config.report.backfillDays &&
+    !config.report.backfillWindows &&
     !config.report.backfillStart &&
     !config.report.backfillEnd
   ) {
@@ -350,6 +350,7 @@ function buildWindows(
     ];
   }
 
+  const windowDays = config.report.windowDays ?? 1;
   const endDate = config.report.backfillEnd
     ? parseDateOnly(config.report.backfillEnd)
     : new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
@@ -357,13 +358,14 @@ function buildWindows(
     ? parseDateOnly(config.report.backfillStart)
     : new Date(endDate.getTime());
 
-  if (config.report.backfillDays && config.report.backfillDays > 0) {
-    startDate.setUTCDate(endDate.getUTCDate() - (config.report.backfillDays - 1));
+  if (config.report.backfillWindows && config.report.backfillWindows > 0) {
+    startDate.setUTCDate(
+      endDate.getUTCDate() - (config.report.backfillWindows - 1) * windowDays
+    );
   }
 
   const windows = [];
   let cursor = new Date(startDate.getTime());
-  const windowDays = config.report.windowDays ?? 1;
   while (cursor <= endDate) {
     const next = new Date(cursor.getTime());
     next.setUTCDate(next.getUTCDate() + windowDays);
