@@ -56,6 +56,9 @@ export const defaultConfig: ConfigFile = {
     includeRepoTopics: true,
     includeDiffSummary: true,
     includeDiffSnippets: true,
+    includePullRequests: true,
+    includePullRequestDetails: true,
+    includeIssues: true,
     maxReadmeBytes: 12000,
     maxLlmTxtBytes: 8000,
     maxDiffFilesPerCommit: 20,
@@ -64,6 +67,8 @@ export const defaultConfig: ConfigFile = {
     maxSnippetFilesPerCommit: 3,
     maxSnippetLinesPerFile: 40,
     maxSnippetBytesPerRepo: 8000,
+    maxPullRequestsPerRepo: 20,
+    maxIssuesPerRepo: 20,
     ignoreExtensions: [
       ".lock",
       ".min.js",

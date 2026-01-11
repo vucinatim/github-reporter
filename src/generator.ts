@@ -16,7 +16,7 @@ export const basePrompt = `You are a helpful reporter that summarizes GitHub act
 
 Return the response in the requested format. Be concise and factual. Highlight notable changes and themes.
 If repositories have no commits in the window, do not list them individually; instead report a single line with the count.
-Use any repo context provided (overview, readme, llm.txt, diff summaries, diff snippets) to explain what the project is and what changed.`;
+Use any repo context provided (overview, readme, llm.txt, diff summaries, diff snippets, PRs, issues) to explain what the project is and what changed.`;
 
 export async function generateReport(
   input: ReportInput,

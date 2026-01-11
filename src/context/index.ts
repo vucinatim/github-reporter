@@ -5,7 +5,9 @@ import type { ContextLogger } from "../logger.js";
 import { withRetry } from "../retry.js";
 import { diffSummaryProvider } from "./providers/diff-summary.js";
 import { diffSnippetsProvider } from "./providers/diff-snippets.js";
+import { issuesProvider } from "./providers/issues.js";
 import { llmTxtProvider } from "./providers/llm-txt.js";
+import { pullRequestsProvider } from "./providers/pull-requests.js";
 import { readmeProvider } from "./providers/readme.js";
 import { repoOverviewProvider } from "./providers/repo-overview.js";
 import type { ContextProvider } from "./types.js";
@@ -15,7 +17,9 @@ const providers: ContextProvider[] = [
   readmeProvider,
   llmTxtProvider,
   diffSummaryProvider,
-  diffSnippetsProvider
+  diffSnippetsProvider,
+  pullRequestsProvider,
+  issuesProvider
 ];
 
 export async function enrichReposWithContext(args: {

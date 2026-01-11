@@ -242,6 +242,9 @@ export const fileConfigSchema = z.object({
       includeRepoTopics: z.boolean().default(false),
       includeDiffSummary: z.boolean().default(true),
       includeDiffSnippets: z.boolean().default(false),
+      includePullRequests: z.boolean().default(false),
+      includePullRequestDetails: z.boolean().default(false),
+      includeIssues: z.boolean().default(false),
       maxReadmeBytes: z.coerce.number().int().positive().default(12000),
       maxLlmTxtBytes: z.coerce.number().int().positive().default(8000),
       maxDiffFilesPerCommit: z.coerce.number().int().positive().default(20),
@@ -250,6 +253,8 @@ export const fileConfigSchema = z.object({
       maxSnippetFilesPerCommit: z.coerce.number().int().positive().default(3),
       maxSnippetLinesPerFile: z.coerce.number().int().positive().default(40),
       maxSnippetBytesPerRepo: z.coerce.number().int().positive().default(8000),
+      maxPullRequestsPerRepo: z.coerce.number().int().positive().default(20),
+      maxIssuesPerRepo: z.coerce.number().int().positive().default(20),
       ignoreExtensions: z.array(z.string()).default([]),
     })
     .default({}),

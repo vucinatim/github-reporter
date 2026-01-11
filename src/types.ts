@@ -41,6 +41,8 @@ export type RepoContext = {
   overview?: RepoOverview;
   diffSummary?: CommitDiffSummary[];
   diffSnippets?: CommitDiffSnippet[];
+  pullRequests?: PullRequestSummary[];
+  issues?: IssueSummary[];
 };
 
 export type RepoOverview = {
@@ -71,6 +73,34 @@ export type CommitDiffSnippet = {
 export type DiffSnippetFile = {
   path: string;
   patch: string;
+};
+
+export type PullRequestSummary = {
+  number: number;
+  title: string;
+  url: string;
+  state: string;
+  author: string | null;
+  reviewers?: string[];
+  labels?: string[];
+  mergedBy?: string | null;
+  reviewsCount?: number;
+  filesChanged?: number;
+  additions?: number;
+  deletions?: number;
+  createdAt: string;
+  mergedAt?: string | null;
+  closedAt?: string | null;
+};
+
+export type IssueSummary = {
+  number: number;
+  title: string;
+  url: string;
+  state: string;
+  author: string | null;
+  createdAt: string;
+  closedAt?: string | null;
 };
 
 export type ReportOutput = {

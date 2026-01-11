@@ -15,7 +15,7 @@ Values are loaded from `config.defaults.ts` first, and environment variables ove
 
 ## Context enrichment
 
-Enable/disable README, llm.txt, repo metadata, diff summaries, and diff snippets in `config.defaults.ts` under `context`.
+Enable/disable README, llm.txt, repo metadata, diff summaries, diff snippets, PRs, and issues in `config.defaults.ts` under `context`.
 
 ## Templates
 
