@@ -2,11 +2,11 @@ import type { ConfigFile } from "./src/config.ts";
 
 export const defaultConfig: ConfigFile = {
   github: {
-    owner: "",
+    owner: "vucinatim",
     ownerType: "user",
     perPage: 100,
     maxPages: 5,
-    includePrivate: false,
+    includePrivate: true,
   },
   output: {
     format: "markdown",
@@ -16,11 +16,11 @@ export const defaultConfig: ConfigFile = {
     model: "gemini-3-flash-preview",
   },
   storage: {
-    type: "local",
-    bucket: "",
-    region: "",
-    endpoint: "",
-    forcePathStyle: false,
+    type: "s3",
+    bucket: "github-reporter",
+    region: "auto",
+    endpoint: "https://c45f3cd61fcad1e24e5e14401f258723.r2.cloudflarestorage.com",
+    forcePathStyle: true,
   },
   network: {
     retryCount: 2,
@@ -31,8 +31,8 @@ export const defaultConfig: ConfigFile = {
     includeTimings: true,
     format: "pretty",
     color: true,
-    timeZone: "Europe/Ljubljana",
   },
+  timeZone: "Europe/Ljubljana",
   webhook: {},
   context: {
     includeReadme: true,
@@ -42,7 +42,7 @@ export const defaultConfig: ConfigFile = {
     includeDiffSummary: true,
     includeDiffSnippets: true,
     includePullRequests: true,
-    includePullRequestDetails: false,
+    includePullRequestDetails: true,
     includeIssues: true,
     maxReadmeBytes: 36000,
     maxLlmTxtBytes: 24000,

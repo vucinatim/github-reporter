@@ -20,7 +20,7 @@ async function main() {
     includeTimings: config.logging.includeTimings,
     format: config.logging.format,
     color: config.logging.color,
-    timeZone: config.logging.timeZone
+    timeZone: config.timeZone
   });
 
   if (process.argv.includes("health")) {
@@ -72,7 +72,7 @@ async function runJob(
     const decision = await getScheduleDecision({
       job,
       now,
-      timeZone: config.logging.timeZone,
+      timeZone: config.timeZone,
       storage,
       owner: jobOwner,
       ownerType: jobOwnerType,
@@ -93,7 +93,7 @@ async function runJob(
   const slots = listSlots({
     now,
     schedule: job.schedule,
-    timeZone: config.logging.timeZone ?? "UTC",
+    timeZone: config.timeZone ?? "UTC",
     backfillSlots: job.backfillSlots
   });
 

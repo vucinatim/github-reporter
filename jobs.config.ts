@@ -25,13 +25,13 @@ export const config: JobsConfig = {
         minute: 0
       },
       scope: {
-        owner: "your-username",
+        owner: "vucinatim",
         ownerType: "user"
       },
       promptFile: "./prompts/changelog.txt",
       outputFormat: "markdown",
       onEmpty: "manifest-only",
-      backfillSlots: 0,
+      backfillSlots: 7,
       maxCommitsPerRepo: 50,
       maxRepos: 100,
       maxTotalCommits: 1000,
@@ -39,26 +39,25 @@ export const config: JobsConfig = {
     },
 
     // -------------------------------------------------------------------------
-    // Daily Stats - Deterministic stats JSON
+    // Hourly Stats - Deterministic stats JSON
     // -------------------------------------------------------------------------
     {
-      id: "daily-stats",
-      name: "Daily Stats",
+      id: "hourly-stats",
+      name: "Hourly Stats",
       description: "Hourly activity stats for dashboards",
       mode: "stats",
       dataProfile: "minimal",
       schedule: {
-        type: "daily",
-        hour: 0,
+        type: "hourly",
         minute: 0
       },
       scope: {
-        owner: "your-username",
+        owner: "vucinatim",
         ownerType: "user"
       },
       outputFormat: "json",
       onEmpty: "manifest-only",
-      backfillSlots: 0,
+      backfillSlots: 24,
       includeInactiveRepos: true,
       maxCommitsPerRepo: 20,
       maxTotalCommits: 200
@@ -80,7 +79,7 @@ export const config: JobsConfig = {
         minute: 0
       },
       scope: {
-        owner: "your-username",
+        owner: "vucinatim",
         ownerType: "user"
       },
       aggregation: {
@@ -90,7 +89,7 @@ export const config: JobsConfig = {
       promptFile: "./prompts/weekly-summary.txt",
       outputFormat: "markdown",
       onEmpty: "manifest-only",
-      backfillSlots: 0
+      backfillSlots: 1
     }
   ]
 };

@@ -25,7 +25,7 @@ export async function runHealthCheck(config: AppConfig) {
       limit: core.limit,
       resetAt: formatTimestamp(
         new Date(core.reset * 1000),
-        config.logging.timeZone
+        config.timeZone
       )
     });
   } catch (error) {

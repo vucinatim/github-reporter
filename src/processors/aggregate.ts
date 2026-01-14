@@ -91,14 +91,14 @@ export async function runAggregateWindow(
     }
 
     // 1. Find source reports in the index
-    const items = await loadIndexItemsForRange(storage, sourceIndexBase, window, config.logging.timeZone);
+    const items = await loadIndexItemsForRange(storage, sourceIndexBase, window, config.timeZone);
     
     // 2. Load and merge source outputs
     // Note: We no longer need sourceTemplateId because one job = one output
     const aggregateItems = await loadAggregateItems(storage, items, {
       maxBytesPerItem: job.aggregation?.maxBytesPerItem,
       maxTotalBytes: job.aggregation?.maxTotalBytes
-    }, config.logging.timeZone);
+    }, config.timeZone);
 
     const isEmpty = aggregateItems.length === 0;
     if (isEmpty && job.onEmpty === "skip") {
@@ -193,7 +193,7 @@ export async function runAggregateWindow(
       owner,
       ownerType,
       window: { ...window, days: windowDays, hours: windowHours },
-      timezone: config.logging.timeZone,
+      timezone: config.timeZone,
       scheduledAt,
       slotKey,
       slotType,
@@ -211,7 +211,7 @@ export async function runAggregateWindow(
     await writeSummary(storage, summaryKey, manifest, manifestKey);
     
     // ... index update logic
-    const periodKey = formatMonthKey(windowStart, config.logging.timeZone);
+    const periodKey = formatMonthKey(windowStart, config.timeZone);
     const monthKey = `${indexBaseKey}/${periodKey}.json`;
     const indexItem = {
        owner, ownerType, jobId: job.id, slotKey, slotType, scheduledAt, 

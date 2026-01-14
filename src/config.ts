@@ -110,8 +110,8 @@ export function loadConfig() {
       ),
       format: env.LOG_FORMAT ?? fileConfig.logging.format,
       color: resolveBool(env.LOG_COLOR, fileConfig.logging.color),
-      timeZone: env.TIMEZONE ?? fileConfig.logging.timeZone,
     },
+    timeZone: env.TIMEZONE ?? fileConfig.timeZone,
     context: fileConfig.context,
   };
 }
@@ -163,7 +163,6 @@ export const fileConfigSchema = z.object({
       includeTimings: z.boolean().default(false),
       format: z.enum(["json", "pretty"]).default("json"),
       color: z.boolean().default(false),
-      timeZone: z.string().optional(),
     })
     .default({}),
   webhook: z
@@ -198,6 +197,7 @@ export const fileConfigSchema = z.object({
       ignoreExtensions: z.array(z.string()).default([]),
     })
     .default({}),
+  timeZone: z.string().optional(),
 });
 
 export type ConfigFile = z.infer<typeof fileConfigSchema>;

@@ -82,8 +82,8 @@ export async function runStatsWindow(
     const fetchStart = Date.now();
     runLogger.info("github.fetch.start", {
       window: {
-        start: formatTimestamp(windowStart, config.logging.timeZone),
-        end: formatTimestamp(windowEnd, config.logging.timeZone)
+        start: formatTimestamp(windowStart, config.timeZone),
+        end: formatTimestamp(windowEnd, config.timeZone)
       }
     });
 
@@ -131,7 +131,7 @@ export async function runStatsWindow(
       repos: reposForReport,
       window: { ...window, days: windowDays, hours: windowHours },
       rateLimit,
-      timeZone: config.logging.timeZone
+      timeZone: config.timeZone
     });
     
     runLogger.info("stats.collect.done", {
@@ -166,7 +166,7 @@ export async function runStatsWindow(
       owner,
       ownerType,
       window: { ...window, days: windowDays, hours: windowHours },
-      timezone: config.logging.timeZone,
+      timezone: config.timeZone,
       scheduledAt,
       slotKey,
       slotType,
@@ -181,7 +181,7 @@ export async function runStatsWindow(
     await writeManifest(storage, manifestKey, manifest);
     await writeSummary(storage, summaryKey, manifest, manifestKey);
 
-    const periodKey = formatMonthKey(windowStart, config.logging.timeZone);
+    const periodKey = formatMonthKey(windowStart, config.timeZone);
     const monthKey = `${indexBaseKey}/${periodKey}.json`;
     const indexItem: IndexItem = {
       owner,
@@ -207,7 +207,7 @@ export async function runStatsWindow(
       owner,
       ownerType,
       window: { ...window, days: windowDays, hours: windowHours },
-      timezone: config.logging.timeZone,
+      timezone: config.timeZone,
       scheduledAt,
       slotKey,
       slotType,
@@ -218,8 +218,8 @@ export async function runStatsWindow(
     
     await writeManifest(storage, manifestKey, failedManifest);
     await writeSummary(storage, summaryKey, failedManifest, manifestKey);
-    
-    const periodKey = formatMonthKey(windowStart, config.logging.timeZone);
+ 
+    const periodKey = formatMonthKey(windowStart, config.timeZone);
     const monthKey = `${indexBaseKey}/${periodKey}.json`;
     const indexItem: IndexItem = {
       owner,
