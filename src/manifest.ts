@@ -111,6 +111,7 @@ export type JobRegistryItem = {
     month?: number;
   };
   outputFormat: "markdown" | "json";
+  outputPrefix?: string;
   version?: string;
   updatedAt: string;
 
@@ -331,6 +332,7 @@ export async function writeJobsRegistry(
     mode: job.mode,
     schedule: job.schedule!,
     outputFormat: job.outputFormat,
+    outputPrefix: job.outputPrefix,
     version: job.version,
     updatedAt: now,
     totalRuns,

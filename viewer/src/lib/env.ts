@@ -18,6 +18,7 @@ export const env = createEnv({
     NEXT_PUBLIC_DEFAULT_OWNER: z.string().optional(),
     NEXT_PUBLIC_DEFAULT_OWNER_TYPE: z.enum(["user", "org"]).optional(),
     NEXT_PUBLIC_REPORT_PREFIX: z.string().optional(),
+    NEXT_PUBLIC_TIME_ZONE: z.string().optional(),
   },
   runtimeEnv: {
     R2_BUCKET: process.env.R2_BUCKET,
@@ -29,6 +30,7 @@ export const env = createEnv({
     NEXT_PUBLIC_DEFAULT_OWNER: process.env.NEXT_PUBLIC_DEFAULT_OWNER,
     NEXT_PUBLIC_DEFAULT_OWNER_TYPE: process.env.NEXT_PUBLIC_DEFAULT_OWNER_TYPE,
     NEXT_PUBLIC_REPORT_PREFIX: process.env.NEXT_PUBLIC_REPORT_PREFIX,
+    NEXT_PUBLIC_TIME_ZONE: process.env.NEXT_PUBLIC_TIME_ZONE,
   },
   onValidationError: (error) => {
     if (!globalThis.__viewerEnvErrorLogged) {

@@ -1,24 +1,31 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { listDaysInMonth, useReportViewer } from "./context";
+import { listDaysInMonth, useReportViewer, VIEWER_TIME_ZONE } from "./context";
 
 export function CalendarRowPanel() {
   const { activeMonth, itemsByDay, selectedDayKey, selectDay } =
     useReportViewer();
-  const weekdayFormatter = new Intl.DateTimeFormat(undefined, {
-    weekday: "short",
-    timeZone: "Europe/Ljubljana",
-  });
-  const todayKey = new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Europe/Ljubljana",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(new Date());
+  const [todayKey, setTodayKey] = useState("");
+  const [weekdayFormatter, setWeekdayFormatter] = useState<Intl.DateTimeFormat | null>(null);
+
+  useEffect(() => {
+    setTodayKey(new Intl.DateTimeFormat("en-CA", {
+      timeZone: VIEWER_TIME_ZONE,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).format(new Date()));
+
+    setWeekdayFormatter(new Intl.DateTimeFormat(undefined, {
+      weekday: "short",
+      timeZone: VIEWER_TIME_ZONE,
+    }));
+  }, []);
 
   return (
     <Card className="border-border/60 bg-background/70 shadow-sm backdrop-blur p-0 sm:p-0">
@@ -52,7 +59,7 @@ export function CalendarRowPanel() {
                   onClick={() => void selectDay(day)}
                 >
                   <span className="text-[10px] uppercase text-muted-foreground">
-                    {weekdayFormatter.format(date)}
+                    {weekdayFormatter?.format(date) ?? "--"}
                   </span>
                   <span
                     className={`text-sm font-semibold ${

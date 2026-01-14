@@ -475,8 +475,7 @@ The entire template registry system will be removed since prompts are now inline
 │   ├── manifest.ts      # Updated schema
 │   ├── webhook.ts       # Updated for per-job webhooks
 │   └── storage.ts       # Keep as-is
-└── examples/
-    └── viewer/          # Next.js App (update manifest handling)
+└── viewer/          # Next.js App (update manifest handling)
 ```
 
 ---

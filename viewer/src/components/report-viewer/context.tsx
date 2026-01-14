@@ -27,12 +27,11 @@ const JobRegistryItemSchema = z.object({
     dayOfMonth: z.number().optional(),
     month: z.number().optional(),
   }).optional(),
-  templates: z.array(z.string()),
   outputFormat: z.enum(["markdown", "json"]).optional(),
   outputPrefix: z.string().optional(),
-  updatedAt: z.string().optional(),
   version: z.string().optional(),
-  totalRuns: z.number().optional(),
+  updatedAt: z.string(),
+  totalRuns: z.number(),
   lastRunAt: z.string().optional(),
   lastStatus: z.enum(["success", "failed"]).optional(),
 });
@@ -111,6 +110,12 @@ const ManifestSchema = z.object({
     size: z.number(),
   }).optional(),
 
+  stats: z.object({
+    repos: z.number(),
+    commits: z.number(),
+    prs: z.number(),
+    issues: z.number(),
+  }).optional(),
   repos: z.array(
     z.object({
       name: z.string(),
@@ -119,12 +124,6 @@ const ManifestSchema = z.object({
       issues: z.number(),
     })
   ).optional(),
-  stats: z.object({
-    repos: z.number(),
-    commits: z.number(),
-    prs: z.number(),
-    issues: z.number(),
-  }).optional(),
 });
 
 type OwnerType = z.infer<typeof OwnerTypeSchema>;
@@ -153,9 +152,11 @@ type ReportViewerContextValue = {
   content: string;
   activeTemplateId: string;
   selectDay: (dayKey: string) => Promise<void>;
+  selectRun: (item: IndexItemWithSummary) => Promise<void>;
   selectTemplate: (templateId: string) => Promise<void>;
+  selectedItems: IndexItemWithSummary[];
   loading: boolean;
-  error?: string;
+  error: string | undefined;
 };
 
 const ReportViewerContext = createContext<ReportViewerContextValue | null>(
@@ -166,7 +167,7 @@ const defaultOwner = process.env.NEXT_PUBLIC_DEFAULT_OWNER ?? "";
 const defaultOwnerType = (process.env.NEXT_PUBLIC_DEFAULT_OWNER_TYPE ??
   "user") as OwnerType;
 const prefix = process.env.NEXT_PUBLIC_REPORT_PREFIX ?? "reports";
-const VIEWER_TIME_ZONE = "Europe/Ljubljana";
+export const VIEWER_TIME_ZONE = process.env.NEXT_PUBLIC_TIME_ZONE ?? "Europe/Ljubljana";
 
 function getCurrentMonthKey() {
   return getMonthKeyInTimeZone(new Date(), VIEWER_TIME_ZONE);
@@ -216,6 +217,8 @@ export function ReportViewerProvider({
   const [selectedManifest, setSelectedManifest] = useState<Manifest | null>(
     null
   );
+  const [selectedDayKey, setSelectedDayKey] = useState("");
+  const [selectedItems, setSelectedItems] = useState<IndexItemWithSummary[]>([]);
   const [content, setContent] = useState("");
   const [activeTemplateId, setActiveTemplateId] = useState("");
   const [loading, setLoading] = useState(false);
@@ -259,12 +262,11 @@ export function ReportViewerProvider({
     return map;
   }, [items, activeMonth]);
 
-  const selectedDayKey = selectedManifest
-    ? getDayKeyInTimeZone(selectedManifest.scheduledAt, VIEWER_TIME_ZONE)
-    : undefined;
+
 
   const loadJobs = useCallback(async () => {
     if (!owner) return;
+    setLoading(true);
     setError(undefined);
     const data = await fetchJson(
       `/api/reports/${jobsIndex}`,
@@ -273,12 +275,14 @@ export function ReportViewerProvider({
     if (!data) {
       setJobs([]);
       setJobId("");
+      setLoading(false);
       return;
     }
     setJobs(data.jobs ?? []);
     if (data.jobs?.length) {
       setJobId((current) => current || data.jobs[0]?.id || "");
     }
+    setLoading(false);
   }, [jobsIndex, owner]);
 
   const loadLatest = useCallback(async () => {
@@ -350,13 +354,10 @@ export function ReportViewerProvider({
     [loadMonth]
   );
 
-  const selectDay = useCallback(
-    async (dayKey: string) => {
-      const list = itemsByDay.get(dayKey);
-      const mostRecent = list?.[0];
-      if (!mostRecent) return;
+  const selectRun = useCallback(
+    async (item: IndexItemWithSummary) => {
       const manifest = await fetchJson(
-        `/api/reports/${mostRecent.manifestKey}`,
+        `/api/reports/${item.manifestKey}`,
         ManifestSchema
       );
       if (!manifest) return;
@@ -371,7 +372,25 @@ export function ReportViewerProvider({
         setContent("");
       }
     },
-    [itemsByDay]
+    []
+  );
+
+  const selectDay = useCallback(
+    async (dayKey: string) => {
+      setSelectedDayKey(dayKey);
+      const list = itemsByDay.get(dayKey) ?? [];
+      setSelectedItems(list);
+      
+      const mostRecent = list?.[0];
+      if (!mostRecent) {
+        setSelectedManifest(null);
+        setContent("");
+        return;
+      }
+      
+      void selectRun(mostRecent);
+    },
+    [itemsByDay, selectRun]
   );
 
   const selectTemplate = useCallback(
@@ -391,6 +410,7 @@ export function ReportViewerProvider({
     setJobId("");
     setItems([]);
     setMonthsLoaded([]);
+    monthsLoadedRef.current = [];
     setSelectedManifest(null);
     setContent("");
     setActiveTemplateId("");
@@ -407,6 +427,7 @@ export function ReportViewerProvider({
     baseIndexRef.current = baseIndex;
     setItems([]);
     setMonthsLoaded([]);
+    monthsLoadedRef.current = [];
     setSelectedManifest(null);
     setContent("");
     setActiveTemplateId("");
@@ -442,10 +463,12 @@ export function ReportViewerProvider({
       baseIndex,
       itemsByDay,
       selectedDayKey,
+      selectedItems,
       selectedManifest,
       content,
       activeTemplateId,
       selectDay,
+      selectRun,
       selectTemplate,
       loading,
       error,
@@ -464,7 +487,9 @@ export function ReportViewerProvider({
       content,
       activeTemplateId,
       selectDay,
+      selectRun,
       selectTemplate,
+      selectedItems,
       loading,
       error,
     ]
