@@ -29,7 +29,14 @@ export async function enrichReposWithContext(args: {
   rateLimit: RateLimitInfo;
   logger: ContextLogger;
   providerAllowlist?: string[];
+  dataProfile?: "minimal" | "standard" | "full";
 }) {
+  const dataProfile = args.dataProfile ?? "standard";
+  
+  if (dataProfile === "minimal") {
+    return [];
+  }
+
   const octokit = new Octokit({
     auth: args.config.github.token
   });
@@ -41,12 +48,25 @@ export async function enrichReposWithContext(args: {
     error?: string;
   }[] = [];
 
+  // Filter providers based on dataProfile
+  let filteredProviders = providers;
+  if (dataProfile === "standard") {
+    // High-level context: Diff Summary, Issues, PRs
+    filteredProviders = providers.filter(p => 
+      ["repo-overview", "readme", "diff-summary", "pull-requests", "issues"].includes(p.name)
+    );
+  } else if (dataProfile === "full") {
+    // Standard + Code-heavy context: LLM.txt, Snippets
+    filteredProviders = providers; 
+  }
+
   const allowed =
     args.providerAllowlist && args.providerAllowlist.length > 0
-      ? providers.filter((provider) =>
+      ? filteredProviders.filter((provider) =>
           args.providerAllowlist?.includes(provider.name)
         )
-      : providers;
+      : filteredProviders;
+
 
   for (const provider of allowed) {
     const start = Date.now();

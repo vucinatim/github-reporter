@@ -2,11 +2,10 @@ import type { ConfigFile } from "./src/config.ts";
 
 export const defaultConfig: ConfigFile = {
   github: {
+    owner: "",
     ownerType: "user",
     perPage: 100,
     maxPages: 5,
-    allowlist: [],
-    blocklist: [],
     includePrivate: false,
   },
   output: {

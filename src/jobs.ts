@@ -1,33 +1,8 @@
-import "dotenv/config";
 import { z } from "zod";
-import { defaultJobs } from "../jobs.defaults.js";
 
-const truthy = new Set(["true", "1", "yes"]);
-
-const envSchema = z.object({
-  JOBS_ENABLED: z.string().optional(),
-  RUN_SCHEDULED_ONLY: z.string().optional(),
-  BACKFILL_SLOTS: z.coerce.number().int().nonnegative().optional(),
-  REPORT_TEMPLATES: z.string().optional(),
-  REPORT_ON_EMPTY: z.enum(["placeholder", "manifest-only", "skip"]).optional(),
-  INCLUDE_INACTIVE_REPOS: z.string().optional(),
-  MAX_COMMITS_PER_REPO: z.coerce.number().int().positive().optional(),
-  MAX_REPOS: z.coerce.number().int().positive().optional(),
-  MAX_TOTAL_COMMITS: z.coerce.number().int().positive().optional(),
-  MAX_TOKENS_HINT: z.coerce.number().int().positive().optional(),
-  REPORT_IDEMPOTENT_KEY: z.string().optional()
-});
-
-const jobScopeSchema = z.object({
-  owner: z.string().optional(),
-  ownerType: z.enum(["user", "org"]).optional(),
-  allowlist: z.array(z.string()).optional(),
-  blocklist: z.array(z.string()).optional(),
-  includePrivate: z.boolean().optional(),
-  authors: z.array(z.string()).optional(),
-  excludeAuthors: z.array(z.string()).optional(),
-  authorAliases: z.record(z.string()).optional()
-});
+// =============================================================================
+// SCHEDULE SCHEMA
+// =============================================================================
 
 const scheduleSchema = z.object({
   type: z.enum(["hourly", "daily", "weekly", "monthly", "yearly"]),
@@ -38,104 +13,202 @@ const scheduleSchema = z.object({
   month: z.coerce.number().int().min(1).max(12).optional()
 });
 
+// =============================================================================
+// SCOPE SCHEMA (Per-job, replaces global allowlist/blocklist)
+// =============================================================================
+
+const scopeSchema = z.object({
+  owner: z.string().min(1),
+  ownerType: z.enum(["user", "org"]).default("user"),
+  repos: z.array(z.string()).optional(),
+  allowlist: z.array(z.string()).optional(),
+  blocklist: z.array(z.string()).optional(),
+  includePrivate: z.boolean().optional(),
+  authors: z.array(z.string()).optional(),
+  excludeAuthors: z.array(z.string()).optional(),
+  authorAliases: z.record(z.string()).optional()
+});
+
+// =============================================================================
+// WEBHOOK SCHEMA (Per-job, falls back to global)
+// =============================================================================
+
+const webhookSchema = z.object({
+  url: z.string().url(),
+  secret: z.string().optional()
+});
+
+// =============================================================================
+// AGGREGATION SCHEMA
+// =============================================================================
+
+const aggregationSchema = z.object({
+  sourceJobId: z.string().min(1),
+  maxDays: z.number().int().positive().optional(),
+  maxBytes: z.number().int().positive().optional(),
+  maxBytesPerItem: z.number().int().positive().optional(),
+  maxTotalBytes: z.number().int().positive().optional()
+});
+
+// =============================================================================
+// JOB SCHEMA (One job = One output)
+// =============================================================================
+
 const jobSchema = z
   .object({
+    // Identity
     id: z.string().min(1),
     name: z.string().min(1),
     description: z.string().optional(),
+    version: z.string().optional(),
+
+    // Mode: determines processing logic
     mode: z.enum(["pipeline", "aggregate", "stats"]).default("pipeline"),
-    jobVersion: z.string().optional(),
-    templates: z.array(z.string()).default([]),
-    outputFormat: z.enum(["markdown", "json"]).optional(),
+
+    // Scheduling
+    schedule: scheduleSchema,
+
+    // Scope: what data to fetch (per-job, no global)
+    scope: scopeSchema,
+
+    // Data profile: how much data to fetch
+    dataProfile: z.enum(["minimal", "standard", "full"]).optional(),
+
+    // Processing (for pipeline/aggregate modes)
+    prompt: z.string().optional(),
+    promptFile: z.string().optional(),
+    outputFormat: z.enum(["markdown", "json"]).default("markdown"),
+
+    // Aggregation (for aggregate mode only)
+    aggregation: aggregationSchema.optional(),
+
+    // Output behavior
     onEmpty: z.enum(["placeholder", "manifest-only", "skip"]).default("manifest-only"),
-    includeInactiveRepos: z.boolean().default(false),
-    maxCommitsPerRepo: z.coerce.number().int().positive().optional(),
-    maxRepos: z.coerce.number().int().positive().optional(),
-    maxTotalCommits: z.coerce.number().int().positive().optional(),
-    maxTokensHint: z.coerce.number().int().positive().optional(),
-    idempotentKey: z.string().optional(),
-    backfillSlots: z.coerce.number().int().nonnegative().default(0),
+    backfillSlots: z.number().int().nonnegative().default(0),
     outputPrefix: z.string().optional(),
+    idempotentKey: z.boolean().optional().default(false),
+
+    // Data Processing
     contextProviders: z.array(z.string()).optional(),
     redactPaths: z.array(z.string()).optional(),
-    schedule: scheduleSchema.optional(),
-    scope: jobScopeSchema.optional(),
-    aggregation: z
-      .object({
-        sourceTemplateId: z.string().optional(),
-        sourceJobId: z.string().optional(),
-        sourceOutputPrefix: z.string().optional(),
-        promptTemplate: z.string().optional(),
-        maxBytesPerItem: z.coerce.number().int().positive().optional(),
-        maxTotalBytes: z.coerce.number().int().positive().optional()
-      })
-      .optional()
-  })
-  .refine((job) => job.schedule, {
-    message: "Job must define a schedule."
-  });
 
-const jobsFileSchema = z.object({
+    // Limits
+    maxCommitsPerRepo: z.number().int().positive().optional(),
+    maxRepos: z.number().int().positive().optional(),
+    maxTotalCommits: z.number().int().positive().optional(),
+    maxTokensHint: z.number().int().positive().optional(),
+    includeInactiveRepos: z.boolean().optional().default(false),
+
+    // Per-job webhook (optional, falls back to global config)
+    webhook: webhookSchema.optional()
+  })
+  .refine(
+    (job) => {
+      // Aggregate mode requires aggregation config
+      if (job.mode === "aggregate" && !job.aggregation) {
+        return false;
+      }
+      return true;
+    },
+    { message: "Aggregate mode requires aggregation config" }
+  )
+  .refine(
+    (job) => {
+      // Pipeline/aggregate modes should have prompt or promptFile
+      if (job.mode === "pipeline" && !job.prompt && !job.promptFile) {
+        return false;
+      }
+      return true;
+    },
+    { message: "Pipeline mode requires prompt or promptFile" }
+  );
+
+// =============================================================================
+// JOBS CONFIG FILE SCHEMA
+// =============================================================================
+
+const jobsConfigSchema = z.object({
   jobs: z.array(jobSchema).min(1)
 });
 
-export type JobScope = z.infer<typeof jobScopeSchema>;
+// =============================================================================
+// TYPE EXPORTS
+// =============================================================================
+
+export type Schedule = z.infer<typeof scheduleSchema>;
+export type Scope = z.infer<typeof scopeSchema>;
+export type Webhook = z.infer<typeof webhookSchema>;
+export type Aggregation = z.infer<typeof aggregationSchema>;
 export type JobConfig = z.infer<typeof jobSchema>;
-export type JobsFile = z.infer<typeof jobsFileSchema>;
+export type JobsConfig = z.input<typeof jobsConfigSchema>;
+
+// =============================================================================
+// SCHEMA EXPORTS (for validation)
+// =============================================================================
+
+export {
+  scheduleSchema,
+  scopeSchema,
+  webhookSchema,
+  aggregationSchema,
+  jobSchema,
+  jobsConfigSchema
+};
+
+// =============================================================================
+// DEFAULT DATA PROFILES
+// =============================================================================
+
+export function getDefaultDataProfile(mode: JobConfig["mode"]): "minimal" | "standard" | "full" {
+  switch (mode) {
+    case "aggregate":
+    case "stats":
+      return "minimal";
+    case "pipeline":
+    default:
+      return "standard";
+  }
+}
+
+// =============================================================================
+// PROMPT LOADING
+// =============================================================================
+
+import { existsSync, readFileSync } from "node:fs";
+import { resolve, dirname } from "node:path";
+
+export function loadPrompt(job: JobConfig, configDir: string): string | undefined {
+  if (job.prompt) {
+    return job.prompt;
+  }
+  if (job.promptFile) {
+    const promptPath = resolve(configDir, job.promptFile);
+    return readFileSync(promptPath, "utf-8");
+  }
+  return undefined;
+}
+export async function loadJobs(configPath: string = "jobs.config.ts"): Promise<JobConfig[]> {
+  const absolutePath = resolve(process.cwd(), configPath);
+  try {
+    // Basic check for existence
+    if (!existsSync(absolutePath)) {
+      throw new Error(`Jobs config file not found at ${absolutePath}`);
+    }
+    
+    // Use dynamic import for ESM compatibility
+    const config = await import(`file://${absolutePath}`);
+    const parsed = jobsConfigSchema.parse(config.config || config.default || config);
+    return parsed.jobs;
+  } catch (err) {
+    if (err instanceof z.ZodError) {
+      throw new Error(`Invalid jobs configuration: ${err.errors.map(e => `${e.path.join('.')}: ${e.message}`).join(', ')}`);
+    }
+    throw err;
+  }
+}
 
 export function loadSchedulerConfig() {
-  const env = envSchema.parse(process.env);
   return {
-    runScheduledOnly: resolveBool(env.RUN_SCHEDULED_ONLY, true)
+    runScheduledOnly: process.argv.includes("--scheduled-only") || process.env.SCHEDULED_ONLY === "true"
   };
-}
-
-export function loadJobs(): JobConfig[] {
-  const env = envSchema.parse(process.env);
-  const file = jobsFileSchema.parse(defaultJobs);
-  const enabled = resolveList(env.JOBS_ENABLED, []);
-  const applyEnvOverrides = enabled.length === 0;
-  const selected =
-    enabled.length === 0
-      ? file.jobs
-      : file.jobs.filter((job) => enabled.includes(job.id));
-  if (selected.length === 0) {
-    throw new Error("No jobs enabled. Check JOBS_ENABLED or jobs.defaults.ts.");
-  }
-  if (!applyEnvOverrides) {
-    return selected;
-  }
-  return selected.map((job) => applyEnvOverridesToJob(job, env));
-}
-
-function applyEnvOverridesToJob(job: JobConfig, env: z.infer<typeof envSchema>) {
-  const templates = resolveList(env.REPORT_TEMPLATES, job.templates);
-  return {
-    ...job,
-    includeInactiveRepos: resolveBool(
-      env.INCLUDE_INACTIVE_REPOS,
-      job.includeInactiveRepos
-    ),
-    maxCommitsPerRepo: env.MAX_COMMITS_PER_REPO ?? job.maxCommitsPerRepo,
-    maxRepos: env.MAX_REPOS ?? job.maxRepos,
-    maxTotalCommits: env.MAX_TOTAL_COMMITS ?? job.maxTotalCommits,
-    maxTokensHint: env.MAX_TOKENS_HINT ?? job.maxTokensHint,
-    idempotentKey: env.REPORT_IDEMPOTENT_KEY ?? job.idempotentKey,
-    templates,
-    backfillSlots: env.BACKFILL_SLOTS ?? job.backfillSlots,
-    onEmpty: env.REPORT_ON_EMPTY ?? job.onEmpty
-  };
-}
-
-function resolveBool(value: string | undefined, fallback: boolean) {
-  if (value === undefined) return fallback;
-  return truthy.has(value.toLowerCase());
-}
-
-function resolveList(value: string | undefined, fallback: string[]) {
-  if (!value) return fallback;
-  return value
-    .split(",")
-    .map((item) => item.trim())
-    .filter(Boolean);
 }

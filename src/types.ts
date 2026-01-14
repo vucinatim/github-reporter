@@ -42,7 +42,7 @@ export type AggregateInput = {
   ownerType: "user" | "org";
   window: ActivityWindow;
   job: { id: string; name: string };
-  source: { jobId: string; templateId: string };
+  source: { jobId: string };
   items: { date: string; manifestKey: string; content: string }[];
 };
 
@@ -115,6 +115,11 @@ export type IssueSummary = {
 export type ReportOutput = {
   format: "markdown" | "json";
   text: string;
+  usage?: {
+    inputTokens: number;
+    outputTokens: number;
+    totalTokens: number;
+  };
 };
 
 export type StoredArtifact = {

@@ -10,8 +10,6 @@ const envSchema = z.object({
   GITHUB_OWNER_TYPE: z.enum(["user", "org"]).optional(),
   GITHUB_PER_PAGE: z.coerce.number().int().positive().optional(),
   GITHUB_MAX_PAGES: z.coerce.number().int().positive().optional(),
-  REPO_ALLOWLIST: z.string().optional(),
-  REPO_BLOCKLIST: z.string().optional(),
   INCLUDE_PRIVATE: z.string().optional(),
 
   OUTPUT_FORMAT: z.enum(["markdown", "json"]).optional(),
@@ -46,22 +44,12 @@ export type AppConfig = ReturnType<typeof loadConfig>;
 export function loadConfig() {
   const env = envSchema.parse(process.env);
   const fileConfig = fileConfigSchema.parse(defaultConfig);
-  const allowlist = resolveList(
-    env.REPO_ALLOWLIST,
-    fileConfig.github.allowlist
-  );
-  const blocklist = resolveList(
-    env.REPO_BLOCKLIST,
-    fileConfig.github.blocklist
-  );
-  const owner = env.GITHUB_OWNER ?? fileConfig.github.owner;
+  
   const apiKey = env.GEMINI_API_KEY ?? fileConfig.llm.apiKey;
-  if (!owner) {
-    throw new Error("Missing GITHUB_OWNER (env or config.defaults.ts).");
-  }
   if (!apiKey) {
     throw new Error("Missing GEMINI_API_KEY (env or config.defaults.ts).");
   }
+  
   const storage = {
     type: env.BUCKET_TYPE ?? fileConfig.storage.type,
     bucket: resolveBucketName(env, fileConfig.storage.bucket),
@@ -83,12 +71,10 @@ export function loadConfig() {
   return {
     github: {
       token: env.GITHUB_TOKEN ?? fileConfig.github.token,
-      owner,
+      owner: env.GITHUB_OWNER ?? fileConfig.github.owner ?? "",
       ownerType: env.GITHUB_OWNER_TYPE ?? fileConfig.github.ownerType,
       perPage: env.GITHUB_PER_PAGE ?? fileConfig.github.perPage,
       maxPages: env.GITHUB_MAX_PAGES ?? fileConfig.github.maxPages,
-      allowlist,
-      blocklist,
       includePrivate: resolveBool(
         env.INCLUDE_PRIVATE,
         fileConfig.github.includePrivate
@@ -134,8 +120,6 @@ export const fileConfigSchema = z.object({
       ownerType: z.enum(["user", "org"]).default("user"),
       perPage: z.coerce.number().int().positive().default(100),
       maxPages: z.coerce.number().int().positive().default(5),
-      allowlist: z.array(z.string()).default([]),
-      blocklist: z.array(z.string()).default([]),
       includePrivate: z.boolean().default(false),
     })
     .default({}),

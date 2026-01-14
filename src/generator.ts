@@ -35,7 +35,12 @@ export async function generateReport(
 
   return {
     format: config.outputFormat,
-    text: normalized
+    text: normalized,
+    usage: result.response.usageMetadata ? {
+      inputTokens: result.response.usageMetadata.promptTokenCount,
+      outputTokens: result.response.usageMetadata.candidatesTokenCount,
+      totalTokens: result.response.usageMetadata.totalTokenCount
+    } : undefined
   };
 }
 
@@ -53,7 +58,12 @@ export async function generateAggregateReport(
 
   return {
     format: config.outputFormat,
-    text: normalized
+    text: normalized,
+    usage: result.response.usageMetadata ? {
+      inputTokens: result.response.usageMetadata.promptTokenCount,
+      outputTokens: result.response.usageMetadata.candidatesTokenCount,
+      totalTokens: result.response.usageMetadata.totalTokenCount
+    } : undefined
   };
 }
 
@@ -105,7 +115,7 @@ function buildAggregatePrompt(input: AggregateInput, config: GeneratorConfig) {
     "Owner:",
     `${input.owner} (${input.ownerType})`,
     "Source:",
-    `${input.source.jobId} (${input.source.templateId})`,
+    `${input.source.jobId}`,
     "Daily reports:",
     itemsText,
     `Output format: ${config.outputFormat}`

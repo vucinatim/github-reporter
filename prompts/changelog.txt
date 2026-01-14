@@ -1,0 +1,12 @@
+Write a formal changelog summarizing the GitHub activity.
+Use the following sections:
+- 🚀 Added
+- 🛠️ Fixed
+- 🔄 Changed
+- 📝 Documentation
+- 👷 DevOps
+
+For each repo, list the significant changes with commit hashes and links when available.
+Be concise but technical.
+Focus on impact.
+Exclude minor dependency updates unless they are critical.

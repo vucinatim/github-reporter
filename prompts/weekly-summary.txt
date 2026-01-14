@@ -1,0 +1,9 @@
+Summarize the week's daily reports into a high-level executive summary.
+Sections:
+- 🏆 Key Accomplishments
+- 📊 Velocity & Trends
+- 🚧 Blockers & Risks
+- 🎯 Goals for Next Week
+
+Synthesize the daily updates; do not just repeat them. Highlight themes across multiple days.
+Tone: Senior Lead / Engineering Manager perspective.

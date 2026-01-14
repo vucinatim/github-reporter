@@ -1,0 +1,7 @@
+Write a single tweet-style summary of today's GitHub activity.
+Max 280 characters.
+Be punchy and positive.
+Use emojis sparingly.
+Include repo links.
+Focus on the "Big Win" of the day.
+No hashtags.

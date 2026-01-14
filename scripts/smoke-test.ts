@@ -23,7 +23,7 @@ async function main() {
   await runHealthCheck(config);
 
   const schedulerConfig = loadSchedulerConfig();
-  const jobs = loadJobs();
+  const jobs = await loadJobs();
   const storage = createStorageClient(config.storage);
 
   baseLogger.info("smoke.jobs", {

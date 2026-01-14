@@ -41,36 +41,48 @@ export function ReportDetailsPanel() {
             <CardTitle className="text-lg">
               {selectedManifest.owner} · {formatWindowLabel(selectedManifest.window)}
             </CardTitle>
-            <div className="flex flex-wrap gap-3 text-[10px] text-muted-foreground">
-              <span>{selectedManifest.stats.commits} commits</span>
-              <span>{selectedManifest.stats.prs} PRs</span>
-              <span>{selectedManifest.stats.issues} issues</span>
-              <span>{selectedManifest.stats.repos} repos</span>
+            <div className="flex flex-wrap gap-3 text-[10px] text-muted-foreground border-b border-border/40 pb-2">
+              <span>{selectedManifest.stats?.commits ?? 0} commits</span>
+              <span>{selectedManifest.stats?.prs ?? 0} PRs</span>
+              <span>{selectedManifest.stats?.issues ?? 0} issues</span>
+              <span>{selectedManifest.stats?.repos ?? 0} repos</span>
             </div>
-          </div>
+            
+            <div className="space-y-2 pt-1">
+              <div className="flex flex-col gap-1 text-[10px] text-muted-foreground/80">
+                {selectedManifest.durationMs !== undefined && (
+                  <span>Duration: {selectedManifest.durationMs}ms</span>
+                )}
+                {selectedManifest.llm && (
+                  <span>
+                    LLM: {selectedManifest.llm.model} 
+                    {selectedManifest.llm.inputTokens !== undefined && ` (${selectedManifest.llm.inputTokens}/${selectedManifest.llm.outputTokens} tokens)`}
+                  </span>
+                )}
+                {selectedManifest.dataProfile && (
+                  <span>Profile: {selectedManifest.dataProfile}</span>
+                )}
+                {selectedManifest.source && (
+                  <span>Source: {selectedManifest.source.jobId} ({selectedManifest.source.itemCount} items)</span>
+                )}
+              </div>
+            </div>
 
-          {selectedManifest.templates.length > 0 ? (
-            <Tabs
-              value={activeTemplateId}
-              onValueChange={(value) => void selectTemplate(value)}
-            >
-              <TabsList className="flex h-auto flex-wrap justify-start gap-2 bg-transparent p-0">
-                {selectedManifest.templates.map((template) => (
-                  <TabsTrigger
-                    key={template.id}
-                    value={template.id}
-                    className="rounded-full border border-border bg-background px-3 py-1 text-[10px] shadow-sm data-[state=active]:bg-foreground data-[state=active]:text-background"
-                  >
-                    {template.id}
-                  </TabsTrigger>
-                ))}
-              </TabsList>
-            </Tabs>
-          ) : (
-            <p className="text-xs text-muted-foreground">
-              No templates available for this report.
-            </p>
-          )}
+            {selectedManifest.output ? (
+              <div className="flex items-center justify-between pt-2">
+                <Badge variant="outline" className="text-[9px] uppercase tracking-wider opacity-60">
+                  {selectedManifest.output.format}
+                </Badge>
+                <span className="text-[10px] text-muted-foreground">
+                  {(selectedManifest.output.size / 1024).toFixed(1)} KB
+                </span>
+              </div>
+            ) : (
+              <p className="text-xs text-muted-foreground pt-2">
+                No output artifact available.
+              </p>
+            )}
+          </div>
         </CardContent>
       ) : (
         <CardContent className="text-xs text-muted-foreground">

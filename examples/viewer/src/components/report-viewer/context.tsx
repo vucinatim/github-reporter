@@ -26,12 +26,15 @@ const JobRegistryItemSchema = z.object({
     weekday: z.number().optional(),
     dayOfMonth: z.number().optional(),
     month: z.number().optional(),
-  }),
+  }).optional(),
   templates: z.array(z.string()),
   outputFormat: z.enum(["markdown", "json"]).optional(),
   outputPrefix: z.string().optional(),
   updatedAt: z.string().optional(),
   version: z.string().optional(),
+  totalRuns: z.number().optional(),
+  lastRunAt: z.string().optional(),
+  lastStatus: z.enum(["success", "failed"]).optional(),
 });
 
 const JobRegistrySchema = z.object({
@@ -41,19 +44,6 @@ const JobRegistrySchema = z.object({
 });
 
 const IndexItemSchema = z.object({
-  slotKey: z.string(),
-  slotType: z.enum(["hourly", "daily", "weekly", "monthly", "yearly"]),
-  scheduledAt: z.string(),
-  start: z.string(),
-  end: z.string(),
-  days: z.number(),
-  hours: z.number().optional(),
-  manifestKey: z.string(),
-  jobId: z.string().optional(),
-  summaryKey: z.string().optional(),
-});
-
-const SummarySchema = z.object({
   owner: z.string(),
   ownerType: OwnerTypeSchema,
   jobId: z.string(),
@@ -68,23 +58,22 @@ const SummarySchema = z.object({
   }),
   status: z.enum(["success", "failed"]),
   empty: z.boolean(),
-  templates: z.array(z.string()),
-  bytes: z.number(),
+  outputSize: z.number(),
   manifestKey: z.string(),
 });
 
+const SummarySchema = IndexItemSchema;
+
 const ManifestSchema = z.object({
   schemaVersion: z.number().optional(),
-  job: z
-    .object({
-      id: z.string(),
-      name: z.string(),
-      description: z.string().optional(),
-      mode: z.enum(["pipeline", "aggregate", "stats"]),
-      version: z.string().optional(),
-    })
-    .optional(),
-  status: z.enum(["success", "failed"]).optional(),
+  job: z.object({
+    id: z.string(),
+    name: z.string(),
+    description: z.string().optional(),
+    mode: z.enum(["pipeline", "aggregate", "stats"]),
+    version: z.string().optional(),
+  }),
+  status: z.enum(["success", "failed"]),
   error: z.string().optional(),
   owner: z.string(),
   ownerType: OwnerTypeSchema,
@@ -99,15 +88,29 @@ const ManifestSchema = z.object({
   }),
   timezone: z.string().optional(),
   empty: z.boolean().optional(),
-  templates: z.array(
-    z.object({
-      id: z.string(),
-      format: z.string(),
-      key: z.string(),
-      uri: z.string(),
-      size: z.number(),
-    })
-  ),
+  
+  // Observability
+  generatedAt: z.string().optional(),
+  durationMs: z.number().optional(),
+  dataProfile: z.enum(["minimal", "standard", "full"]).optional(),
+  llm: z.object({
+    model: z.string(),
+    inputTokens: z.number().optional(),
+    outputTokens: z.number().optional(),
+  }).optional(),
+  source: z.object({
+    jobId: z.string(),
+    itemCount: z.number(),
+  }).optional(),
+
+  // One output
+  output: z.object({
+    format: z.enum(["markdown", "json"]),
+    key: z.string(),
+    uri: z.string(),
+    size: z.number(),
+  }).optional(),
+
   repos: z.array(
     z.object({
       name: z.string(),
@@ -115,13 +118,13 @@ const ManifestSchema = z.object({
       prs: z.number(),
       issues: z.number(),
     })
-  ),
+  ).optional(),
   stats: z.object({
     repos: z.number(),
     commits: z.number(),
     prs: z.number(),
     issues: z.number(),
-  }),
+  }).optional(),
 });
 
 type OwnerType = z.infer<typeof OwnerTypeSchema>;
@@ -296,10 +299,10 @@ export function ReportViewerProvider({
     if (baseIndexRef.current !== requestBaseIndex) return;
     if (!manifest) return;
     setSelectedManifest(manifest);
-    const first = manifest.templates[0];
-    if (first) {
-      setActiveTemplateId(first.id);
-      const text = await fetchText(`/api/reports/${first.key}`);
+    const output = manifest.output;
+    if (output) {
+      setActiveTemplateId("default");
+      const text = await fetchText(`/api/reports/${output.key}`);
       if (baseIndexRef.current !== requestBaseIndex) return;
       setContent(text);
     }
@@ -318,13 +321,12 @@ export function ReportViewerProvider({
       const enriched = await Promise.all(
         index.items.map(async (item) => {
           const summaryKey =
-            item.summaryKey ??
             item.manifestKey.replace(/manifest\.json$/, "summary.json");
           const summary = await fetchJson(
             `/api/reports/${summaryKey}`,
             SummarySchema
           );
-          return { ...item, summaryKey, summary: summary ?? undefined };
+          return { ...item, summary: summary ?? undefined };
         })
       );
       if (baseIndexRef.current !== requestBaseIndex) return false;
@@ -359,10 +361,10 @@ export function ReportViewerProvider({
       );
       if (!manifest) return;
       setSelectedManifest(manifest);
-      const first = manifest.templates[0];
-      if (first) {
-        setActiveTemplateId(first.id);
-        const text = await fetchText(`/api/reports/${first.key}`);
+      const output = manifest.output;
+      if (output) {
+        setActiveTemplateId("default");
+        const text = await fetchText(`/api/reports/${output.key}`);
         setContent(text);
       } else {
         setActiveTemplateId("");
@@ -375,12 +377,10 @@ export function ReportViewerProvider({
   const selectTemplate = useCallback(
     async (templateId: string) => {
       if (!selectedManifest) return;
-      const template = selectedManifest.templates.find(
-        (entry) => entry.id === templateId
-      );
-      if (!template) return;
-      setActiveTemplateId(templateId);
-      const text = await fetchText(`/api/reports/${template.key}`);
+      const output = selectedManifest.output;
+      if (!output) return;
+      setActiveTemplateId("default");
+      const text = await fetchText(`/api/reports/${output.key}`);
       setContent(text);
     },
     [selectedManifest]

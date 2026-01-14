@@ -1,0 +1,5 @@
+Write a casual developer diary entry for today's work.
+Tone: Personal, reflective, human.
+Avoid bullet points where possible; use 2-4 short paragraphs instead.
+Mention what was challenging, what was rewarding, and what's next.
+Focus on the narrative of the day.

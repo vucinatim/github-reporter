@@ -18,10 +18,18 @@ export type GitHubConfig = {
   maxPages: number;
 };
 
+const activityCache = new Map<string, { repos: RepoActivity[]; rateLimit: RateLimitInfo }>();
+
 export async function fetchActivity(
   config: GitHubConfig,
-  window: ActivityWindow
+  window: ActivityWindow,
+  dataProfile: "minimal" | "standard" | "full" = "standard"
 ): Promise<{ repos: RepoActivity[]; rateLimit: RateLimitInfo }> {
+  const cacheKey = `${config.owner}:${config.ownerType}:${window.start}:${window.end}:${dataProfile}`;
+  if (activityCache.has(cacheKey)) {
+    return activityCache.get(cacheKey)!;
+  }
+
   const octokit = new Octokit({
     auth: config.token
   });
@@ -29,10 +37,10 @@ export async function fetchActivity(
 
   const repos = await listRepos(octokit, config, rateLimit);
   const filtered = repos.filter((repo) => {
-    if (config.allowlist.length > 0 && !config.allowlist.includes(repo.name)) {
+    if (config.allowlist && config.allowlist.length > 0 && !config.allowlist.includes(repo.name)) {
       return false;
     }
-    if (config.blocklist.includes(repo.name)) {
+    if (config.blocklist && config.blocklist.includes(repo.name)) {
       return false;
     }
     if (!config.includePrivate && repo.private) {
@@ -43,18 +51,23 @@ export async function fetchActivity(
 
   const results: RepoActivity[] = [];
   for (const repo of filtered) {
-    const commits = await listCommits(
-      octokit,
-      config.owner,
-      repo.name,
-      window,
-      config,
-      rateLimit
-    );
+    let commits: RepoActivity["commits"] = [];
+    if (dataProfile !== "minimal") {
+      commits = await listCommits(
+        octokit,
+        config.owner,
+        repo.name,
+        window,
+        config,
+        rateLimit
+      );
+    }
     results.push({ repo, commits });
   }
 
-  return { repos: results, rateLimit };
+  const output = { repos: results, rateLimit };
+  activityCache.set(cacheKey, output);
+  return output;
 }
 
 type RepoApi = { name: string; private: boolean; html_url: string };

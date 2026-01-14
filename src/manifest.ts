@@ -19,7 +19,7 @@ export type ReportManifest = {
     mode: "pipeline" | "aggregate" | "stats";
     version?: string;
   };
-  status?: "success" | "failed";
+  status: "success" | "failed";
   error?: string;
   owner: string;
   ownerType: "user" | "org";
@@ -34,22 +34,68 @@ export type ReportManifest = {
   };
   timezone?: string;
   empty?: boolean;
-  templates: ManifestTemplate[];
-  repos: { name: string; commits: number; prs: number; issues: number }[];
-  stats: { repos: number; commits: number; prs: number; issues: number };
+
+  // Observability fields
+  generatedAt: string;
+  durationMs: number;
+  dataProfile: "minimal" | "standard" | "full";
+
+  // LLM metadata (for pipeline/aggregate modes)
+  llm?: {
+    model: string;
+    inputTokens?: number;
+    outputTokens?: number;
+  };
+
+  // Aggregation source (for aggregate mode)
+  source?: {
+    jobId: string;
+    itemCount: number;
+  };
+
+  // Single output (not templates[])
+  output?: {
+    format: "markdown" | "json";
+    key: string;
+    uri: string;
+    size: number;
+  };
+
+  // Summary stats for calendar badges
+  stats: {
+    repos: number;
+    commits: number;
+    prs: number;
+    issues: number;
+  };
+  repos: {
+    name: string;
+    commits: number;
+    prs: number;
+    issues: number;
+  }[];
 };
 
-export type IndexItem = {
+export type SummaryItem = {
+  owner: string;
+  ownerType: "user" | "org";
+  jobId: string;
   slotKey: string;
   slotType: "hourly" | "daily" | "weekly" | "monthly" | "yearly";
   scheduledAt: string;
-  start: string;
-  end: string;
-  days: number;
-  hours?: number;
+  window: {
+    start: string;
+    end: string;
+    days: number;
+    hours?: number;
+  };
+  status: "success" | "failed";
+  empty: boolean;
+  outputSize: number;
   manifestKey: string;
-  summaryKey?: string;
 };
+
+export type IndexItem = SummaryItem;
 
 export type JobRegistryItem = {
   id: string;
@@ -64,11 +110,14 @@ export type JobRegistryItem = {
     dayOfMonth?: number;
     month?: number;
   };
-  templates: string[];
-  outputFormat?: "markdown" | "json";
-  outputPrefix?: string;
+  outputFormat: "markdown" | "json";
   version?: string;
   updatedAt: string;
+
+  // Execution stats
+  totalRuns: number;
+  lastRunAt?: string;
+  lastStatus?: "success" | "failed";
 };
 
 export async function writeManifest(
@@ -87,20 +136,20 @@ export async function updateIndex(
   ownerType: "user" | "org",
   period: string,
   item: IndexItem,
-  job: JobConfig
+  jobId: string
 ) {
   const existing = await storage.get(key);
   const parsed = existing
     ? JSON.parse(existing)
-    : { owner, ownerType, jobId: job.id, period, items: [] };
+    : { owner, ownerType, jobId, period, items: [] };
   const items: IndexItem[] = parsed.items ?? [];
   const already = items.find((entry) => entry.manifestKey === item.manifestKey);
   if (!already) {
     items.push(item);
-    items.sort((a, b) => a.start.localeCompare(b.start));
+    items.sort((a, b) => a.window.start.localeCompare(b.window.start));
   }
   const body = JSON.stringify(
-    { owner, ownerType, jobId: job.id, period, items },
+    { owner, ownerType, jobId, period, items },
     null,
     2
   );
@@ -113,30 +162,34 @@ export async function writeLatest(
   owner: string,
   ownerType: "user" | "org",
   item: IndexItem,
-  job: JobConfig
+  jobId: string
 ) {
   const body = JSON.stringify(
-    { owner, ownerType, jobId: job.id, latest: item },
+    { owner, ownerType, jobId, latest: item },
     null,
     2
   );
   return storage.put(key, body, "application/json");
 }
 
-export function buildManifest(
-  owner: string,
-  ownerType: "user" | "org",
-  window: { start: string; end: string; days: number; hours?: number },
-  timezone: string | undefined,
-  scheduledAt: string,
-  slotKey: string,
-  slotType: "hourly" | "daily" | "weekly" | "monthly" | "yearly",
-  repos: RepoActivity[],
-  artifacts: { id: string; format: string; stored: StoredArtifact }[],
-  empty: boolean,
-  job: JobConfig
-): ReportManifest {
-  const reposSummary = repos.map((repo) => ({
+export function buildManifest(args: {
+  owner: string;
+  ownerType: "user" | "org";
+  window: { start: string; end: string; days: number; hours?: number };
+  timezone: string | undefined;
+  scheduledAt: string;
+  slotKey: string;
+  slotType: "hourly" | "daily" | "weekly" | "monthly" | "yearly";
+  repos: RepoActivity[];
+  output?: { format: "markdown" | "json"; stored: StoredArtifact };
+  empty: boolean;
+  job: JobConfig;
+  durationMs: number;
+  dataProfile: "minimal" | "standard" | "full";
+  llm?: ReportManifest["llm"];
+  source?: ReportManifest["source"];
+}): ReportManifest {
+  const reposSummary = args.repos.map((repo) => ({
     name: repo.repo.name,
     commits: repo.commits.length,
     prs: repo.context?.pullRequests?.length ?? 0,
@@ -153,33 +206,35 @@ export function buildManifest(
     { repos: 0, commits: 0, prs: 0, issues: 0 }
   );
 
-  const templates: ManifestTemplate[] = artifacts.map((artifact) => ({
-    id: artifact.id,
-    format: artifact.format,
-    key: artifact.stored.key,
-    uri: artifact.stored.uri,
-    size: artifact.stored.size
-  }));
-
   return {
     schemaVersion: 1,
     job: {
-      id: job.id,
-      name: job.name,
-      description: job.description,
-      mode: job.mode,
-      version: job.jobVersion
+      id: args.job.id,
+      name: args.job.name,
+      description: args.job.description,
+      mode: args.job.mode,
+      version: args.job.version
     },
     status: "success",
-    owner,
-    ownerType,
-    scheduledAt,
-    slotKey,
-    slotType,
-    window,
-    timezone,
-    empty,
-    templates,
+    owner: args.owner,
+    ownerType: args.ownerType,
+    scheduledAt: args.scheduledAt,
+    slotKey: args.slotKey,
+    slotType: args.slotType,
+    window: args.window,
+    timezone: args.timezone,
+    empty: args.empty,
+    generatedAt: new Date().toISOString(),
+    durationMs: args.durationMs,
+    dataProfile: args.dataProfile,
+    llm: args.llm,
+    source: args.source,
+    output: args.output ? {
+      format: args.output.format,
+      key: args.output.stored.key,
+      uri: args.output.stored.uri,
+      size: args.output.stored.size
+    } : undefined,
     repos: reposSummary,
     stats
   };
@@ -195,6 +250,7 @@ export function buildFailedManifest(args: {
   slotType: "hourly" | "daily" | "weekly" | "monthly" | "yearly";
   job: JobConfig;
   error: string;
+  durationMs: number;
 }): ReportManifest {
   return {
     schemaVersion: 1,
@@ -203,7 +259,7 @@ export function buildFailedManifest(args: {
       name: args.job.name,
       description: args.job.description,
       mode: args.job.mode,
-      version: args.job.jobVersion
+      version: args.job.version
     },
     status: "failed",
     error: args.error,
@@ -215,7 +271,10 @@ export function buildFailedManifest(args: {
     window: args.window,
     timezone: args.timezone,
     empty: true,
-    templates: [],
+    generatedAt: new Date().toISOString(),
+    durationMs: args.durationMs,
+    dataProfile: args.job.dataProfile ?? "standard",
+    output: undefined,
     repos: [],
     stats: { repos: 0, commits: 0, prs: 0, issues: 0 }
   };
@@ -236,12 +295,11 @@ export async function writeSummary(
       slotType: manifest.slotType,
       scheduledAt: manifest.scheduledAt,
       window: manifest.window,
-      status: manifest.status ?? "success",
+      status: manifest.status,
       empty: manifest.empty ?? false,
-      templates: manifest.templates.map((template) => template.id),
-      bytes: manifest.templates.reduce((sum, t) => sum + t.size, 0),
+      outputSize: manifest.output?.size ?? 0,
       manifestKey
-    },
+    } as SummaryItem,
     null,
     2
   );
@@ -253,7 +311,8 @@ export async function writeJobsRegistry(
   key: string,
   owner: string,
   ownerType: "user" | "org",
-  job: JobConfig
+  job: JobConfig,
+  lastStatus?: "success" | "failed"
 ) {
   const existing = await storage.get(key);
   const parsed = existing
@@ -261,18 +320,24 @@ export async function writeJobsRegistry(
     : { owner, ownerType, jobs: [], updatedAt: new Date().toISOString() };
   const jobs: JobRegistryItem[] = parsed.jobs ?? [];
   const now = new Date().toISOString();
+  
+  const existingItem = jobs.find((entry) => entry.id === job.id);
+  const totalRuns = (existingItem?.totalRuns ?? 0) + 1;
+
   const next: JobRegistryItem = {
     id: job.id,
     name: job.name,
     description: job.description,
     mode: job.mode,
     schedule: job.schedule!,
-    templates: job.templates,
     outputFormat: job.outputFormat,
-    outputPrefix: job.outputPrefix,
-    version: job.jobVersion,
-    updatedAt: now
+    version: job.version,
+    updatedAt: now,
+    totalRuns,
+    lastRunAt: now,
+    lastStatus: lastStatus
   };
+
   const index = jobs.findIndex((entry) => entry.id === job.id);
   if (index >= 0) {
     jobs[index] = next;
