@@ -28,6 +28,10 @@ Typical uses:
    ```bash
    pnpm dev
    ```
+   Run a single job by id:
+   ```bash
+   pnpm dev -- --job daily-changelog
+   ```
 
    > [!TIP]
    > Need help getting your tokens? Check out our [Token Setup Guide](docs/SETUP_TOKENS.md) for step-by-step instructions on creating GitHub and Slack credentials.

@@ -1,9 +1,31 @@
-Summarize the week's daily reports into a high-level executive summary.
-Sections:
-- 🏆 Key Accomplishments
-- 📊 Velocity & Trends
-- 🚧 Blockers & Risks
-- 🎯 Goals for Next Week
+Summarize the last 7 daily changelogs into a high-value weekly report.
+Goal: informative, developer-friendly, and a bit energizing. Keep it grounded in evidence.
 
-Synthesize the daily updates; do not just repeat them. Highlight themes across multiple days.
-Tone: Senior Lead / Engineering Manager perspective.
+Output template (use this exact Slack mrkdwn structure):
+
+*Weekly Summary* 📅
+
+*Highlights* 🏆
+- [repo] win with impact
+
+*Momentum and Trends* 📈
+- pattern observed across multiple days or repos
+
+*Risks and Concerns* 🚧
+- risk with evidence
+If there are no clear risks, write: "No clear risks surfaced."
+
+*Inferred Next Focus (Low Confidence)* 🧭
+- likely: inferred follow-up
+- possible: inferred follow-up
+
+*Notable Repos* 🔎
+Short paragraph listing the top 2-4 repos and why they mattered this week.
+
+Rules:
+- Synthesize, don't repeat daily entries verbatim.
+- Use Slack mrkdwn only: no Markdown headers (#), no tables, no HTML.
+- Every claim should be anchored to evidence from the daily changelogs (repo names, repeated themes, or concrete changes).
+- Inference is welcome but must be labeled as "likely" or "possible" and never stated as fact.
+- Avoid long-term goals unless explicitly stated in the source.
+Tone: senior lead energy, optimistic but candid.

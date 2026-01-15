@@ -24,6 +24,16 @@ export type RateLimitInfo = {
   reset?: number;
 };
 
+export type FetchMeta = {
+  totalRepos: number;
+  filteredRepos: number;
+  excludedAllowlist: number;
+  excludedBlocklist: number;
+  excludedPrivate: number;
+  scannedRepos: number;
+  stoppedEarly: boolean;
+};
+
 export type ActivityWindow = {
   start: string;
   end: string;

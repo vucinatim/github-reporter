@@ -1,6 +1,7 @@
 import { Octokit } from "@octokit/rest";
 import type {
   ActivityWindow,
+  FetchMeta,
   RateLimitInfo,
   RepoActivity,
   RepoRef
@@ -18,14 +19,37 @@ export type GitHubConfig = {
   maxPages: number;
 };
 
-const activityCache = new Map<string, { repos: RepoActivity[]; rateLimit: RateLimitInfo }>();
+type FetchOptions = {
+  maxActiveRepos?: number;
+  maxRepos?: number;
+  preferActive?: boolean;
+};
+
+const activityCache = new Map<
+  string,
+  { repos: RepoActivity[]; rateLimit: RateLimitInfo; meta: FetchMeta }
+>();
 
 export async function fetchActivity(
   config: GitHubConfig,
   window: ActivityWindow,
-  dataProfile: "minimal" | "standard" | "full" = "standard"
-): Promise<{ repos: RepoActivity[]; rateLimit: RateLimitInfo }> {
-  const cacheKey = `${config.owner}:${config.ownerType}:${window.start}:${window.end}:${dataProfile}`;
+  dataProfile: "minimal" | "standard" | "full" = "standard",
+  options: FetchOptions = {}
+): Promise<{ repos: RepoActivity[]; rateLimit: RateLimitInfo; meta: FetchMeta }> {
+  const activeLimit = options.maxActiveRepos ?? "all";
+  const repoLimit = options.maxRepos ?? "all";
+  const preferActiveFlag = options.preferActive ?? Boolean(options.maxActiveRepos);
+  const preferActive = preferActiveFlag ? "active" : "default";
+  const cacheKey = [
+    config.owner,
+    config.ownerType,
+    window.start,
+    window.end,
+    dataProfile,
+    `active:${activeLimit}`,
+    `repos:${repoLimit}`,
+    `sort:${preferActive}`
+  ].join(":");
   if (activityCache.has(cacheKey)) {
     return activityCache.get(cacheKey)!;
   }
@@ -35,22 +59,39 @@ export async function fetchActivity(
   });
   const rateLimit: RateLimitInfo = {};
 
-  const repos = await listRepos(octokit, config, rateLimit);
+  const repos = await listRepos(octokit, config, rateLimit, {
+    preferActive: preferActiveFlag
+  });
+  let excludedAllowlist = 0;
+  let excludedBlocklist = 0;
+  let excludedPrivate = 0;
   const filtered = repos.filter((repo) => {
     if (config.allowlist && config.allowlist.length > 0 && !config.allowlist.includes(repo.name)) {
+      excludedAllowlist += 1;
       return false;
     }
     if (config.blocklist && config.blocklist.includes(repo.name)) {
+      excludedBlocklist += 1;
       return false;
     }
     if (!config.includePrivate && repo.private) {
+      excludedPrivate += 1;
       return false;
     }
     return true;
   });
 
   const results: RepoActivity[] = [];
+  let scannedRepos = 0;
+  let activeRepos = 0;
+  let stoppedEarly = false;
+  const maxActiveRepos = options.maxActiveRepos;
+  const maxRepos = options.maxRepos;
   for (const repo of filtered) {
+    if (maxRepos && results.length >= maxRepos) {
+      stoppedEarly = true;
+      break;
+    }
     let commits: RepoActivity["commits"] = [];
     if (dataProfile !== "minimal") {
       commits = await listCommits(
@@ -63,9 +104,26 @@ export async function fetchActivity(
       );
     }
     results.push({ repo, commits });
+    scannedRepos += 1;
+    if (commits.length > 0) {
+      activeRepos += 1;
+    }
+    if (dataProfile !== "minimal" && maxActiveRepos && activeRepos >= maxActiveRepos) {
+      stoppedEarly = true;
+      break;
+    }
   }
 
-  const output = { repos: results, rateLimit };
+  const meta: FetchMeta = {
+    totalRepos: repos.length,
+    filteredRepos: filtered.length,
+    excludedAllowlist,
+    excludedBlocklist,
+    excludedPrivate,
+    scannedRepos,
+    stoppedEarly
+  };
+  const output = { repos: results, rateLimit, meta };
   activityCache.set(cacheKey, output);
   return output;
 }
@@ -81,8 +139,12 @@ type CommitApi = {
 async function listRepos(
   octokit: Octokit,
   config: GitHubConfig,
-  rateLimit: RateLimitInfo
+  rateLimit: RateLimitInfo,
+  options?: { preferActive?: boolean }
 ): Promise<RepoRef[]> {
+  const sortParams = options?.preferActive
+    ? { sort: "pushed", direction: "desc" }
+    : {};
   if (config.ownerType === "org") {
     const data = await paginateWithLimit<RepoApi>(
       octokit,
@@ -90,7 +152,8 @@ async function listRepos(
       {
         org: config.owner,
         type: "all",
-        per_page: config.perPage
+        per_page: config.perPage,
+        ...sortParams
       },
       config.maxPages,
       rateLimit
@@ -103,7 +166,8 @@ async function listRepos(
     "GET /users/{username}/repos",
     {
       username: config.owner,
-      per_page: config.perPage
+      per_page: config.perPage,
+      ...sortParams
     },
     config.maxPages,
     rateLimit

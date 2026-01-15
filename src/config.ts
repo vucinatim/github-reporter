@@ -33,6 +33,7 @@ const envSchema = z.object({
   WEBHOOK_SECRET: z.string().optional(),
   SLACK_TOKEN: z.string().optional(),
   SLACK_CHANNEL: z.string().optional(),
+  SLACK_DELIVERY: z.enum(["file", "message", "both"]).optional(),
   RETRY_COUNT: z.coerce.number().int().nonnegative().optional(),
   RETRY_BACKOFF_MS: z.coerce.number().int().positive().optional(),
   LOG_LEVEL: z.enum(["debug", "info", "warn", "error"]).optional(),
@@ -97,6 +98,8 @@ export function loadConfig() {
       secret: env.WEBHOOK_SECRET ?? fileConfig.webhook.secret,
       token: env.SLACK_TOKEN ?? fileConfig.webhook.token,
       channel: env.SLACK_CHANNEL ?? fileConfig.webhook.channel,
+      mode: env.SLACK_DELIVERY ?? fileConfig.webhook.mode,
+      enabled: fileConfig.webhook.enabled,
     },
     network: {
       retryCount: env.RETRY_COUNT ?? fileConfig.network.retryCount,
@@ -171,6 +174,8 @@ export const fileConfigSchema = z.object({
       secret: z.string().optional(),
       token: z.string().optional(),
       channel: z.string().optional(),
+      mode: z.enum(["file", "message", "both"]).optional(),
+      enabled: z.boolean().optional(),
     })
     .default({}),
   context: z

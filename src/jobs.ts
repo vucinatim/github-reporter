@@ -37,7 +37,9 @@ const webhookSchema = z.object({
   url: z.string().url().optional(),
   token: z.string().optional(),
   channel: z.string().optional(),
-  secret: z.string().optional()
+  secret: z.string().optional(),
+  mode: z.enum(["file", "message", "both"]).optional(),
+  enabled: z.boolean().optional()
 });
 
 // =============================================================================

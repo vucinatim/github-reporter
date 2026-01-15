@@ -44,6 +44,7 @@ export async function runStatsWindow(
   const allowlist = job.scope.allowlist ?? [];
   const blocklist = job.scope.blocklist ?? [];
   const includePrivate = job.scope.includePrivate ?? config.github.includePrivate;
+  const dataProfile = job.dataProfile ?? "minimal";
 
   const { days: windowDays, hours: windowHours } = getWindowSize(
     slotType,
@@ -78,6 +79,20 @@ export async function runStatsWindow(
       }
     }
 
+    runLogger.info("job.window", {
+      slotKey,
+      slotType,
+      scheduledAt,
+      timeZone: config.timeZone ?? "UTC",
+      windowUtc: window,
+      windowLocal: {
+        start: formatTimestamp(windowStart, config.timeZone),
+        end: formatTimestamp(windowEnd, config.timeZone)
+      },
+      dataProfile,
+      includeInactiveRepos: job.includeInactiveRepos ?? false
+    });
+
     // 1. Fetch Repository Activity (minimal profile usually)
     const fetchStart = Date.now();
     runLogger.info("github.fetch.start", {
@@ -87,7 +102,7 @@ export async function runStatsWindow(
       }
     });
 
-    const { repos, rateLimit } = await withRetry(
+    const { repos, rateLimit, meta } = await withRetry(
       () =>
         fetchActivity(
           {
@@ -100,7 +115,11 @@ export async function runStatsWindow(
             perPage: config.github.perPage,
             maxPages: config.github.maxPages
           },
-          window
+          window,
+          dataProfile,
+          {
+            maxRepos: job.maxRepos
+          }
         ),
       {
         retries: config.network.retryCount,
@@ -119,7 +138,15 @@ export async function runStatsWindow(
     const reposForReport = job.includeInactiveRepos ? authorFiltered : authorFiltered.filter(r => r.commits.length > 0);
 
     runLogger.info("github.fetch.done", {
+      totalRepoCount: meta.totalRepos,
+      filteredRepoCount: meta.filteredRepos,
+      excludedAllowlist: meta.excludedAllowlist,
+      excludedBlocklist: meta.excludedBlocklist,
+      excludedPrivate: meta.excludedPrivate,
+      scannedRepos: meta.scannedRepos,
+      stoppedEarly: meta.stoppedEarly,
       repoCount: authorFiltered.length,
+      rateLimit,
       ...withDuration(fetchStart, config.logging.includeTimings)
     });
 
@@ -161,7 +188,6 @@ export async function runStatsWindow(
     }
 
     // 5. Manifest & Indexing
-    const dataProfile = job.dataProfile ?? "minimal";
     const manifest = buildManifest({
       owner,
       ownerType,

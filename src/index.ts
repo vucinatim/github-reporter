@@ -1,5 +1,5 @@
 import { loadConfig } from "./config.js";
-import { loadJobs, loadSchedulerConfig, type JobConfig } from "./jobs.js";
+import { loadJobs, type JobConfig } from "./jobs.js";
 import { createStorageClient, describeStorage, validateStorage } from "./storage.js";
 import { logger, setLoggerConfig } from "./logger.js";
 import { runHealthCheck } from "./health.js";
@@ -13,6 +13,18 @@ import { runAggregateWindow } from "./processors/aggregate.js";
 import { runStatsWindow } from "./processors/stats.js";
 import { listSlots } from "./slots.js";
 
+function parseArgs(argv: string[]) {
+  const args = new Set(argv);
+  const jobFlagIndex = argv.indexOf("--job");
+  const jobIdFromFlag = jobFlagIndex >= 0 ? argv[jobFlagIndex + 1] : undefined;
+  const jobCmdIndex = argv.indexOf("job");
+  const jobIdFromCmd = jobCmdIndex >= 0 ? argv[jobCmdIndex + 1] : undefined;
+  return {
+    jobId: jobIdFromFlag ?? jobIdFromCmd,
+    runScheduledOnly: args.has("--scheduled-only")
+  };
+}
+
 async function main() {
   const config = loadConfig();
   setLoggerConfig({
@@ -22,6 +34,8 @@ async function main() {
     color: config.logging.color,
     timeZone: config.timeZone
   });
+
+  const args = parseArgs(process.argv.slice(2));
 
   if (process.argv.includes("health")) {
     await runHealthCheck(config);
@@ -38,15 +52,22 @@ async function main() {
   await validateStorage(config.storage);
   baseLogger.info("storage.validate.done", describeStorage(config.storage));
 
-  const schedulerConfig = loadSchedulerConfig();
   const jobs = await loadJobs();
-  baseLogger.info("run.start", { jobs: jobs.map((job) => job.id) });
+  const selectedJobs = args.jobId
+    ? jobs.filter((job) => job.id === args.jobId)
+    : jobs;
+  if (args.jobId && selectedJobs.length === 0) {
+    throw new Error(`Job not found: ${args.jobId}`);
+  }
+  baseLogger.info("run.start", { jobs: selectedJobs.map((job) => job.id) });
 
-  for (const job of jobs) {
-    await runJob(job, config, storage, schedulerConfig);
+  for (const job of selectedJobs) {
+    await runJob(job, config, storage, {
+      runScheduledOnly: args.runScheduledOnly
+    });
   }
 
-  baseLogger.info("run.complete", { jobs: jobs.map((job) => job.id) });
+  baseLogger.info("run.complete", { jobs: selectedJobs.map((job) => job.id) });
 }
 
 async function runJob(

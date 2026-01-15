@@ -53,6 +53,7 @@ export async function runPipelineWindow(
   const allowlist = job.scope.allowlist ?? [];
   const blocklist = job.scope.blocklist ?? [];
   const includePrivate = job.scope.includePrivate ?? config.github.includePrivate;
+  const dataProfile = job.dataProfile ?? "standard";
 
   const { days: windowDays, hours: windowHours } = getWindowSize(
     slotType,
@@ -86,19 +87,35 @@ export async function runPipelineWindow(
       }
     }
 
+    runLogger.info("job.window", {
+      slotKey,
+      slotType,
+      scheduledAt,
+      timeZone: config.timeZone ?? "UTC",
+      windowUtc: window,
+      windowLocal: {
+        start: formatTimestamp(windowStart, config.timeZone),
+        end: formatTimestamp(windowEnd, config.timeZone)
+      },
+      dataProfile,
+      includeInactiveRepos: job.includeInactiveRepos ?? false
+    });
+
     // 1. Fetch Repository Activity
     const fetchStart = Date.now();
     runLogger.info("github.fetch.start", {
       allowlistCount: allowlist.length,
       blocklistCount: blocklist.length,
       includePrivate,
+      perPage: config.github.perPage,
+      maxPages: config.github.maxPages,
       window: {
         start: formatTimestamp(windowStart, config.timeZone),
         end: formatTimestamp(windowEnd, config.timeZone)
       }
     });
 
-    const { repos, rateLimit } = await withRetry(
+    const { repos, rateLimit, meta } = await withRetry(
       () =>
         fetchActivity(
           {
@@ -111,7 +128,12 @@ export async function runPipelineWindow(
             perPage: config.github.perPage,
             maxPages: config.github.maxPages
           },
-          window
+          window,
+          dataProfile,
+          {
+            maxActiveRepos: job.maxRepos,
+            preferActive: Boolean(job.maxRepos)
+          }
         ),
       {
         retries: config.network.retryCount,
@@ -120,7 +142,8 @@ export async function runPipelineWindow(
     );
 
     // 2. Apply Filters & Budgets
-    const cappedRepos = job.maxRepos ? repos.slice(0, job.maxRepos) : repos;
+    const repoLimit = dataProfile === "minimal" ? job.maxRepos : undefined;
+    const cappedRepos = repoLimit ? repos.slice(0, repoLimit) : repos;
     const normalizedRepos = cappedRepos.map((repo) => ({
       ...repo,
       commits: job.maxCommitsPerRepo
@@ -135,11 +158,27 @@ export async function runPipelineWindow(
     const reposForReport = job.includeInactiveRepos ? authorFiltered : activeRepos;
 
     runLogger.info("github.fetch.done", {
+      totalRepoCount: meta.totalRepos,
+      filteredRepoCount: meta.filteredRepos,
+      excludedAllowlist: meta.excludedAllowlist,
+      excludedBlocklist: meta.excludedBlocklist,
+      excludedPrivate: meta.excludedPrivate,
+      scannedRepos: meta.scannedRepos,
+      stoppedEarly: meta.stoppedEarly,
       repoCount: authorFiltered.length,
       activeRepoCount: activeRepos.length,
       inactiveRepoCount,
+      rateLimit,
       ...withDuration(fetchStart, config.logging.includeTimings)
     });
+    if (activeRepos.length > 0) {
+      runLogger.debug("github.fetch.samples", {
+        activeRepos: activeRepos.slice(0, 10).map((repo) => ({
+          name: repo.repo.name,
+          commits: repo.commits.length
+        }))
+      });
+    }
 
     // 3. Enrich with Context
     const providerResults = await enrichReposWithContext({
@@ -260,7 +299,6 @@ export async function runPipelineWindow(
     }
 
     // 7. Manifest & Indexing
-    const dataProfile = job.dataProfile ?? "standard";
     const manifest = buildManifest({
       owner,
       ownerType,

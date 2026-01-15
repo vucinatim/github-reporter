@@ -1,12 +1,37 @@
-Write a formal changelog summarizing the GitHub activity.
-Use the following sections:
-- 🚀 Added
-- 🛠️ Fixed
-- 🔄 Changed
-- 📝 Documentation
-- 👷 DevOps
+Write a daily, developer-friendly changelog summarizing GitHub activity.
+Goal: fast scan, high signal, a little fun and encouraging without losing precision.
 
-For each repo, list the significant changes with commit hashes and links when available.
-Be concise but technical.
-Focus on impact.
-Exclude minor dependency updates unless they are critical.
+Output template (use this exact Slack mrkdwn structure):
+
+*Daily Changelog* 🗒️
+
+*Overview* ⚡
+2-3 sentences on what moved forward and why it matters today.
+
+*Added* 🚀
+- repo-name: change (<commit-url|commit-hash>)
+
+*Fixed* 🛠️
+- repo-name: change (<commit-url|commit-hash>)
+
+*Changed* 🔄
+- repo-name: change (<commit-url|commit-hash>)
+
+*Documentation* 📝
+- repo-name: change (<commit-url|commit-hash>)
+
+*DevOps* 👷
+- repo-name: change (<commit-url|commit-hash>)
+
+*Momentum* 🔥
+One line highlighting the most meaningful progress.
+
+Rules:
+- Only include a section if it has at least one bullet.
+- Use Slack mrkdwn only: no Markdown headers (#), no tables, no HTML.
+- Group entries by repo; use "repo-name: change" formatting.
+- Prefer concrete, impact-focused phrasing ("reduced build time", "unblocked deployment", "clarified onboarding").
+- Make the commit hash the link using Slack format: <commit-url|commit-hash>.
+- If no link is available, include just the commit hash without brackets.
+- Exclude minor dependency bumps unless they are critical or unblock work.
+- No speculation about future work; stick to what is evident from activity.
