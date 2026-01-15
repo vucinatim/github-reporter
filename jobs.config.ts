@@ -55,7 +55,7 @@ export const config: JobsConfig = {
       schedule: {
         type: "weekly",
         weekday: 1, // Monday
-        hour: 9,
+        hour: 1,
         minute: 0,
       },
       scope: {
