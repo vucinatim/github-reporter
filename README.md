@@ -29,6 +29,9 @@ Typical uses:
    pnpm dev
    ```
 
+   > [!TIP]
+   > Need help getting your tokens? Check out our [Token Setup Guide](docs/SETUP_TOKENS.md) for step-by-step instructions on creating GitHub and Slack credentials.
+
 ## 🛠 Configuration (`jobs.config.ts`)
 
 Jobs are defined using a TypeScript-native configuration. This allows for type safety and easy versioning of your reporting logic.
