@@ -22,7 +22,7 @@ Day-of-week, YYYY-MM-DD → Day-of-week, YYYY-MM-DD (timezone from report metada
 - risk with evidence
 If there are no clear risks, write: "No clear risks surfaced."
 
-*INFERRED NEXT FOCUS (LOW CONFIDENCE)* 🧭
+*INFERRED NEXT FOCUS* 🧭
 - likely: inferred follow-up
 - possible: inferred follow-up
 
