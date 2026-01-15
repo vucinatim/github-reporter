@@ -135,6 +135,7 @@ export async function runAggregateWindow(
           owner,
           ownerType,
           window,
+          timeZone: config.timeZone ?? "UTC",
           job: { id: job.id, name: job.id },
           source: { jobId: sourceJobId },
           items: aggregateItems

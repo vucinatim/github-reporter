@@ -43,6 +43,7 @@ export type ReportInput = {
   owner: string;
   ownerType: "user" | "org";
   window: ActivityWindow;
+  timeZone: string;
   repos: RepoActivity[];
   inactiveRepoCount?: number;
 };
@@ -51,6 +52,7 @@ export type AggregateInput = {
   owner: string;
   ownerType: "user" | "org";
   window: ActivityWindow;
+  timeZone: string;
   job: { id: string; name: string };
   source: { jobId: string };
   items: { date: string; manifestKey: string; content: string }[];

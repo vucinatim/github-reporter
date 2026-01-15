@@ -239,6 +239,7 @@ export async function runPipelineWindow(
           owner,
           ownerType,
           window,
+          timeZone: config.timeZone ?? "UTC",
           repos: redacted,
           inactiveRepoCount: job.includeInactiveRepos ? undefined : inactiveRepoCount
         };
