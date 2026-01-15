@@ -4,6 +4,7 @@ Goal: informative, developer-friendly, and a bit energizing. Keep it grounded in
 Output template (use this exact Slack mrkdwn structure - include the separator line):
 
 ---------------------------------------------------
+
 *WEEKLY SUMMARY* 📅
 
 *WEEK OF* 🗓️
@@ -29,7 +30,6 @@ If there are no clear risks, write: "No clear risks surfaced."
 *NOTABLE REPOS* 🔎
 Short paragraph listing the top 2-4 repos and why they mattered this week.
 
----------------------------------------------------
 Rules:
 - Synthesize, don't repeat daily entries verbatim.
 - Use Slack mrkdwn only: no Markdown headers (#), no tables, no HTML.
@@ -39,4 +39,5 @@ Rules:
 - Every claim should be anchored to evidence from the daily changelogs (repo names, repeated themes, or concrete changes).
 - Inference is welcome but must be labeled as "likely" or "possible" and never stated as fact.
 - Avoid long-term goals unless explicitly stated in the source.
+- Always start the message with the separator line shown above.
 Tone: senior lead energy, optimistic but candid.
