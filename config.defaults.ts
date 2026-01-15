@@ -38,6 +38,7 @@ export const defaultConfig: ConfigFile = {
   context: {
     includeReadme: true,
     includeLlmTxt: true,
+    llmFiles: ["llms.txt", "llm.txt"],
     includeRepoDescription: true,
     includeRepoTopics: true,
     includeDiffSummary: true,

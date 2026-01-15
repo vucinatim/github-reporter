@@ -35,6 +35,7 @@ Rules:
 - Use Slack mrkdwn only: no Markdown headers (#), no tables, no HTML.
 - Always include the WEEK OF line using the earliest and latest dates in the source (use report timezone if available).
 - Always include TEAM SHOUTOUTS with 2-4 contributors mentioned across the week.
+- Use metrics.topContributors (GitHub handles only) for TEAM SHOUTOUTS when available.
 - Every claim should be anchored to evidence from the daily changelogs (repo names, repeated themes, or concrete changes).
 - Inference is welcome but must be labeled as "likely" or "possible" and never stated as fact.
 - Avoid long-term goals unless explicitly stated in the source.

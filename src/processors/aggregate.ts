@@ -19,6 +19,7 @@ import {
   formatDateOnly,
   loadIndexItemsForRange
 } from "../utils.js";
+import { aggregateReportMetrics } from "../metrics.js";
 import { type logger as LoggerType } from "../logger.js";
 import type { AppConfig } from "../config.js";
 import type { JobConfig } from "../jobs.js";
@@ -95,10 +96,16 @@ export async function runAggregateWindow(
     
     // 2. Load and merge source outputs
     // Note: We no longer need sourceTemplateId because one job = one output
-    const aggregateItems = await loadAggregateItems(storage, items, {
+    const { items: aggregateItems, metrics: sourceMetrics } = await loadAggregateItems(storage, items, {
       maxBytesPerItem: job.aggregation?.maxBytesPerItem,
       maxTotalBytes: job.aggregation?.maxTotalBytes
     }, config.timeZone);
+
+    const metricsConfig = job.metrics ?? {};
+    const metrics = aggregateReportMetrics(sourceMetrics, {
+      topContributors: metricsConfig.topContributors ?? 10,
+      topRepos: metricsConfig.topRepos ?? 10
+    });
 
     const isEmpty = aggregateItems.length === 0;
     if (isEmpty && job.onEmpty === "skip") {
@@ -136,6 +143,7 @@ export async function runAggregateWindow(
           ownerType,
           window,
           timeZone: config.timeZone ?? "UTC",
+          metrics: metrics ?? undefined,
           job: { id: job.id, name: job.id },
           source: { jobId: sourceJobId },
           items: aggregateItems
@@ -205,7 +213,8 @@ export async function runAggregateWindow(
       durationMs: Date.now() - runStart,
       dataProfile,
       llm: llmMetadata,
-      source: { jobId: sourceJobId, itemCount: aggregateItems.length }
+      source: { jobId: sourceJobId, itemCount: aggregateItems.length },
+      metrics: metrics ?? undefined
     });
 
     await writeManifest(storage, manifestKey, manifest);
@@ -218,7 +227,8 @@ export async function runAggregateWindow(
        owner, ownerType, jobId: job.id, slotKey, slotType, scheduledAt, 
        window: { ...window, days: windowDays, hours: windowHours },
        status: "success" as const, empty: isEmpty, outputSize: manifest.output?.size ?? 0,
-       manifestKey
+       manifestKey,
+       metrics: metrics?.totals
     };
     await updateIndex(storage, monthKey, owner, ownerType, periodKey, indexItem, job.id);
     await writeLatest(storage, `${indexBaseKey}/latest.json`, owner, ownerType, indexItem, job.id);
@@ -237,6 +247,7 @@ async function loadAggregateItems(
   timeZone?: string
 ) {
   const results: AggregateInput["items"] = [];
+  const metrics: NonNullable<AggregateInput["metrics"]>[] = [];
   const totalCap = caps?.maxTotalBytes ?? Infinity;
   const perItemCap = caps?.maxBytesPerItem ?? Infinity;
   let totalBytes = 0;
@@ -260,7 +271,10 @@ async function loadAggregateItems(
       manifestKey: item.manifestKey,
       content: truncated
     });
+    if (manifest.metrics) {
+      metrics.push(manifest.metrics);
+    }
     totalBytes += bytes;
   }
-  return results;
+  return { items: results, metrics };
 }

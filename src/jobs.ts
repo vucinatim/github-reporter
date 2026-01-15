@@ -103,6 +103,15 @@ const jobSchema = z
     maxTokensHint: z.number().int().positive().optional(),
     includeInactiveRepos: z.boolean().optional().default(false),
 
+    // Metrics
+    metrics: z
+      .object({
+        topContributors: z.number().int().positive().optional(),
+        topRepos: z.number().int().positive().optional()
+      })
+      .optional(),
+    metricsOnly: z.boolean().optional(),
+
     // Per-job webhook (optional, falls back to global config)
     webhook: webhookSchema.optional()
   })

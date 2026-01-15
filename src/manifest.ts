@@ -1,4 +1,4 @@
-import type { RepoActivity } from "./types.js";
+import type { RepoActivity, ReportMetrics, ReportMetricsTotals } from "./types.js";
 import type { StoredArtifact, StorageClient } from "./storage.js";
 import type { JobConfig } from "./jobs.js";
 
@@ -68,6 +68,7 @@ export type ReportManifest = {
     prs: number;
     issues: number;
   };
+  metrics?: ReportMetrics;
   repos: {
     name: string;
     commits: number;
@@ -93,6 +94,7 @@ export type SummaryItem = {
   empty: boolean;
   outputSize: number;
   manifestKey: string;
+  metrics?: ReportMetricsTotals;
 };
 
 export type IndexItem = SummaryItem;
@@ -189,6 +191,7 @@ export function buildManifest(args: {
   dataProfile: "minimal" | "standard" | "full";
   llm?: ReportManifest["llm"];
   source?: ReportManifest["source"];
+  metrics?: ReportManifest["metrics"];
 }): ReportManifest {
   const reposSummary = args.repos.map((repo) => ({
     name: repo.repo.name,
@@ -237,7 +240,8 @@ export function buildManifest(args: {
       size: args.output.stored.size
     } : undefined,
     repos: reposSummary,
-    stats
+    stats,
+    metrics: args.metrics
   };
 }
 
@@ -299,7 +303,8 @@ export async function writeSummary(
       status: manifest.status,
       empty: manifest.empty ?? false,
       outputSize: manifest.output?.size ?? 0,
-      manifestKey
+      manifestKey,
+      metrics: manifest.metrics?.totals
     } as SummaryItem,
     null,
     2

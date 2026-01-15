@@ -34,6 +34,54 @@ export type FetchMeta = {
   stoppedEarly: boolean;
 };
 
+export type ContributorMetrics = {
+  handle: string;
+  commits: number;
+  prsOpened: number;
+  prsMerged: number;
+  prsClosed: number;
+  issuesOpened: number;
+  issuesClosed: number;
+  score: number;
+};
+
+export type RepoMetrics = {
+  name: string;
+  commits: number;
+  additions: number;
+  deletions: number;
+  prsOpened: number;
+  prsMerged: number;
+  prsClosed: number;
+  issuesOpened: number;
+  issuesClosed: number;
+  activityScore: number;
+};
+
+export type ReportMetricsTotals = {
+  repos: number;
+  commits: number;
+  additions: number;
+  deletions: number;
+  prsOpened: number;
+  prsMerged: number;
+  prsClosed: number;
+  issuesOpened: number;
+  issuesClosed: number;
+  contributors: number;
+};
+
+export type ReportMetrics = {
+  totals: ReportMetricsTotals;
+  topContributors: ContributorMetrics[];
+  topRepos: RepoMetrics[];
+  coverage: {
+    diffSummary: boolean;
+    pullRequests: boolean;
+    issues: boolean;
+  };
+};
+
 export type ActivityWindow = {
   start: string;
   end: string;
@@ -44,6 +92,7 @@ export type ReportInput = {
   ownerType: "user" | "org";
   window: ActivityWindow;
   timeZone: string;
+  metrics?: ReportMetrics;
   repos: RepoActivity[];
   inactiveRepoCount?: number;
 };
@@ -53,6 +102,7 @@ export type AggregateInput = {
   ownerType: "user" | "org";
   window: ActivityWindow;
   timeZone: string;
+  metrics?: ReportMetrics;
   job: { id: string; name: string };
   source: { jobId: string };
   items: { date: string; manifestKey: string; content: string }[];

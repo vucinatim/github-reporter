@@ -25,6 +25,7 @@ import {
   summarizeActivity,
   withDuration
 } from "../utils.js";
+import { computeReportMetrics } from "../metrics.js";
 import { formatTimestamp, type logger as LoggerType } from "../logger.js";
 import type { AppConfig } from "../config.js";
 import type { JobConfig } from "../jobs.js";
@@ -54,6 +55,7 @@ export async function runPipelineWindow(
   const blocklist = job.scope.blocklist ?? [];
   const includePrivate = job.scope.includePrivate ?? config.github.includePrivate;
   const dataProfile = job.dataProfile ?? "standard";
+  const metricsOnly = job.metricsOnly === true;
 
   const { days: windowDays, hours: windowHours } = getWindowSize(
     slotType,
@@ -181,19 +183,29 @@ export async function runPipelineWindow(
     }
 
     // 3. Enrich with Context
+    const providerAllowlist = metricsOnly
+      ? ["diff-summary", "pull-requests", "issues"]
+      : job.contextProviders;
     const providerResults = await enrichReposWithContext({
       repos: reposForReport,
       window,
       config,
       rateLimit,
       logger: runLogger,
-      providerAllowlist: job.contextProviders,
+      providerAllowlist,
       dataProfile: job.dataProfile
     });
     runLogger.info("context.providers", { results: providerResults });
 
     const afterContext = applyContextAuthorFilters(reposForReport, job);
     const redacted = applyRedactions(afterContext, job.redactPaths);
+
+    const metricsConfig = job.metrics ?? {};
+    const metrics = computeReportMetrics(redacted, window, {
+      topContributors: metricsConfig.topContributors ?? 10,
+      topRepos: metricsConfig.topRepos ?? 10,
+      authorAliases: job.scope.authorAliases
+    });
 
     const activityStats = summarizeActivity(redacted);
     const isEmpty = activityStats.commits === 0 && activityStats.prs === 0 && activityStats.issues === 0;
@@ -207,7 +219,7 @@ export async function runPipelineWindow(
     let output;
     let llmMetadata: { model: string; inputTokens?: number; outputTokens?: number } | undefined;
 
-    if (!(isEmpty && job.onEmpty === "manifest-only")) {
+    if (!metricsOnly && !(isEmpty && job.onEmpty === "manifest-only")) {
       const outputFormat = job.outputFormat ?? config.output.format;
       const extension = outputFormat === "json" ? "json" : "md";
       const outputKey = `${reportBaseKey}/output.${extension}`;
@@ -240,6 +252,7 @@ export async function runPipelineWindow(
           ownerType,
           window,
           timeZone: config.timeZone ?? "UTC",
+          metrics,
           repos: redacted,
           inactiveRepoCount: job.includeInactiveRepos ? undefined : inactiveRepoCount
         };
@@ -314,7 +327,8 @@ export async function runPipelineWindow(
       job,
       durationMs: Date.now() - runStart,
       dataProfile,
-      llm: llmMetadata
+      llm: llmMetadata,
+      metrics
     });
 
     await writeManifest(storage, manifestKey, manifest);
@@ -333,7 +347,8 @@ export async function runPipelineWindow(
       status: "success",
       empty: isEmpty,
       outputSize: manifest.output?.size ?? 0,
-      manifestKey
+      manifestKey,
+      metrics: metrics.totals
     };
     await updateIndex(storage, monthKey, owner, ownerType, periodKey, indexItem, job.id);
 

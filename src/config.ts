@@ -182,6 +182,7 @@ export const fileConfigSchema = z.object({
     .object({
       includeReadme: z.boolean().default(true),
       includeLlmTxt: z.boolean().default(true),
+      llmFiles: z.array(z.string()).default(["llms.txt", "llm.txt"]),
       includeRepoDescription: z.boolean().default(true),
       includeRepoTopics: z.boolean().default(false),
       includeDiffSummary: z.boolean().default(true),

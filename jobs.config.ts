@@ -37,6 +37,10 @@ export const config: JobsConfig = {
       maxRepos: 10,
       maxTotalCommits: 1000,
       maxTokensHint: 1200,
+      metrics: {
+        topContributors: 10,
+        topRepos: 10,
+      },
     },
 
     // -------------------------------------------------------------------------
@@ -66,6 +70,10 @@ export const config: JobsConfig = {
       outputFormat: "markdown",
       onEmpty: "manifest-only",
       backfillSlots: 0,
+      metrics: {
+        topContributors: 10,
+        topRepos: 10,
+      },
     },
   ],
 };
