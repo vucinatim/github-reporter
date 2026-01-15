@@ -32,7 +32,7 @@ export const config: JobsConfig = {
       promptFile: "./prompts/slack-daily-changelog.txt",
       outputFormat: "markdown",
       onEmpty: "manifest-only",
-      backfillSlots: 1,
+      backfillSlots: 5,
       maxCommitsPerRepo: 50,
       maxRepos: 10,
       maxTotalCommits: 1000,
