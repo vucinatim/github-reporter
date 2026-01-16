@@ -13,15 +13,30 @@ import { runAggregateWindow } from "./processors/aggregate.js";
 import { runStatsWindow } from "./processors/stats.js";
 import { listSlots } from "./slots.js";
 
+const truthy = new Set(["true", "1", "yes"]);
+
+function parseEnvBool(value: string | undefined): boolean | undefined {
+  if (value === undefined) return undefined;
+  return truthy.has(value.toLowerCase());
+}
+
 function parseArgs(argv: string[]) {
   const args = new Set(argv);
   const jobFlagIndex = argv.indexOf("--job");
   const jobIdFromFlag = jobFlagIndex >= 0 ? argv[jobFlagIndex + 1] : undefined;
   const jobCmdIndex = argv.indexOf("job");
   const jobIdFromCmd = jobCmdIndex >= 0 ? argv[jobCmdIndex + 1] : undefined;
+  const runAll = args.has("--run-all");
+  const scheduledOnlyFlag = args.has("--scheduled-only");
+  const envScheduledOnly = parseEnvBool(process.env.SCHEDULED_ONLY);
+  const runScheduledOnly = runAll
+    ? false
+    : scheduledOnlyFlag
+    ? true
+    : envScheduledOnly ?? true;
   return {
     jobId: jobIdFromFlag ?? jobIdFromCmd,
-    runScheduledOnly: args.has("--scheduled-only")
+    runScheduledOnly
   };
 }
 
