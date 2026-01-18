@@ -17,6 +17,10 @@ Day-of-week, YYYY-MM-DD → Day-of-week, YYYY-MM-DD (timezone from report metada
 *MOMENTUM AND TRENDS* 📈
 - pattern observed across multiple days or repos
 
+*LLM TAKE* 🧠
+2-4 sentences. A candid, respectful, evidence-based opinion about how the team did this week.
+If evidence is thin or mixed, say so explicitly.
+
 *RISKS AND CONCERNS* 🚧
 - risk with evidence
 If there are no clear risks, write: "No clear risks surfaced."
@@ -37,4 +41,5 @@ Rules:
 - Every claim should be anchored to evidence from the daily changelogs (repo names, repeated themes, or concrete changes).
 - Inference is welcome but must be labeled as "likely" or "possible" and never stated as fact.
 - Avoid long-term goals unless explicitly stated in the source.
+- The LLM TAKE must be framed as subjective and grounded in the observed work (no speculation about people).
 Tone: senior lead energy, optimistic but candid.
